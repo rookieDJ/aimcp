@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+import { ensureManagedTools } from "./install.js";
+import type { ManagedToolName } from "./paths.js";
+import { printError } from "../lib/util/terminal.js";
+import { loadUserConfig } from "../config/user-config.js";
+
+async function main(argv: string[]): Promise<void> {
+    const command = argv[0] ?? "bootstrap";
+    let tools: ManagedToolName[];
+
+    if (command === "ripgrep") {
+        tools = ["ripgrep"];
+    } else if (command === "cloudflared") {
+        tools = ["cloudflared"];
+    } else if (command === "all") {
+        tools = ["ripgrep", "cloudflared"];
+    } else if (command === "bootstrap") {
+        tools = ["ripgrep"];
+        if (loadUserConfig().publicAccess?.kind === "cloudflare") {
+            tools.push("cloudflared");
+        }
+    } else {
+        throw new Error(`未知组件安装模式：${command}`);
+    }
+
+    await ensureManagedTools(tools);
+}
+
+void main(process.argv.slice(2)).catch((error) => {
+    printError(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+});

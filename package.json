@@ -1,0 +1,89 @@
+{
+    "name": "@meesii/codex-mcp",
+    "version": "1.2.0",
+    "description": "Lean local coding MCP server for ChatGPT with embedded OAuth and Streamable HTTP.",
+    "type": "module",
+    "main": "dist/cli.js",
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.css",
+        "scripts/install.sh",
+        "scripts/install.ps1",
+        "README.md",
+        "LICENSE"
+    ],
+    "bin": {
+        "codex-mcp": "dist/cli.js"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "predev": "node scripts/build-console.mjs",
+        "dev": "tsx watch src/cli.ts",
+        "predev:once": "node scripts/build-console.mjs",
+        "dev:once": "tsx src/cli.ts",
+        "predev:watch": "node scripts/build-console.mjs",
+        "dev:watch": "tsx watch src/cli.ts",
+        "prebuild": "node scripts/clean-dist.mjs",
+        "build": "esbuild \"src/**/*.ts\" --outdir=dist --outbase=src --format=esm --platform=node --target=es2022 --minify",
+        "postbuild": "node scripts/build-console.mjs",
+        "pretest": "npm run build",
+        "test": "node --test test/*.test.js",
+        "test:package": "node scripts/package-smoke.mjs",
+        "prepack": "npm run build",
+        "start": "node dist/cli.js",
+        "typecheck": "tsc -p tsconfig.json --noEmit && vue-tsc -p tsconfig.console.json --noEmit"
+    },
+    "keywords": [
+        "mcp",
+        "chatgpt",
+        "coding"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/meesii/codex-mcp.git"
+    },
+    "bugs": {
+        "url": "https://github.com/meesii/codex-mcp/issues"
+    },
+    "homepage": "https://github.com/meesii/codex-mcp#readme",
+    "license": "MIT",
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@clack/prompts": "^1.7.0",
+        "@modelcontextprotocol/express": "^2.0.0",
+        "@modelcontextprotocol/sdk": "^1.30.0",
+        "@modelcontextprotocol/server": "^2.0.0",
+        "@node-rs/argon2": "^2.0.2",
+        "cross-spawn": "^7.0.6",
+        "express": "^5.2.1",
+        "fflate": "^0.8.3",
+        "http-proxy-agent": "^9.1.0",
+        "https-proxy-agent": "^9.1.0",
+        "jose": "^6.2.8",
+        "minimatch": "^10.2.6",
+        "pino": "^10.3.1",
+        "pino-roll": "^4.0.0",
+        "sharp": "^0.35.3",
+        "socks-proxy-agent": "^10.1.0",
+        "tar": "^7.5.22",
+        "zod": "^4.4.3"
+    },
+    "devDependencies": {
+        "@element-plus/icons-vue": "^2.3.2",
+        "@types/express": "^5.0.6",
+        "@types/node": "^22.19.0",
+        "@vitejs/plugin-vue": "^6.0.9",
+        "element-plus": "^2.14.5",
+        "esbuild": "^0.28.2",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3",
+        "unplugin-vue-components": "^32.1.0",
+        "vite": "^8.3.0",
+        "vue": "^3.5.42",
+        "vue-tsc": "^3.3.11"
+    }
+}
