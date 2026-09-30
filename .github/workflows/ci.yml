@@ -41,7 +41,7 @@ jobs:
       - name: Test built CLI and safety boundaries
         run: npm test
 
-      - name: Package and isolated install smoke
+      - name: Package and isolated global npm install smoke
         run: npm run test:package
 
       - name: Production dependency audit
