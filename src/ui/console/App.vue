@@ -353,7 +353,7 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
     <el-config-provider :locale="zhCn">
     <div v-if="controllerClosed" class="console-closed">
         <div class="console-closed-card">
-            <div class="console-logo">C</div>
+            <div class="console-logo">A</div>
             <h1>aimcp 已关闭</h1>
             <p>Runtime 和 Web Console 都已退出，项目与连接配置仍然保留。</p>
             <code>aimcp open</code>
@@ -363,9 +363,10 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
     <div v-else class="console-shell" :class="{ 'is-sidebar-collapsed': sidebarCollapsed }">
         <aside class="console-sidebar">
             <div class="console-brand" :class="{ 'is-collapsed': sidebarCollapsed }">
-                <span class="console-logo">C</span>
-                <span v-if="!sidebarCollapsed" class="console-brand-text">aimcp</span>
+                <span class="console-logo">A</span>
+                <div v-if="!sidebarCollapsed" class="console-brand-copy"><span class="console-brand-text">aimcp</span><span class="console-brand-caption">本机 MCP 控制台</span></div>
             </div>
+            <div v-if="!sidebarCollapsed" class="console-nav-caption">工作区</div>
             <el-menu class="console-menu" :default-active="page" :collapse="sidebarCollapsed" :collapse-transition="false" @select="handleMenuSelect">
                 <el-menu-item v-for="item in navigation" :key="item.id" :index="item.id">
                     <el-icon><component :is="item.icon" /></el-icon>
@@ -373,6 +374,7 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
                 </el-menu-item>
             </el-menu>
             <div class="console-sidebar-footer">
+                <div v-if="!sidebarCollapsed" class="sidebar-health"><span class="sidebar-health-light"></span><div><strong>本机控制面在线</strong><span>仅此设备可访问</span></div><span class="sidebar-health-check">✓</span></div>
                 <el-tooltip :content="sidebarCollapsed ? '展开导航' : '收起导航'" placement="right">
                     <el-button text class="console-collapse" :aria-label="sidebarCollapsed ? '展开导航' : '收起导航'" @click="sidebarCollapsed = !sidebarCollapsed">
                         <el-icon size="18"><Expand v-if="sidebarCollapsed" /><Fold v-else /></el-icon>
@@ -386,15 +388,16 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
         <main class="console-main">
             <header class="console-topbar">
                 <el-select :model-value="page" class="console-mobile-nav" @change="handleMenuSelect"><el-option v-for="item in navigation" :key="item.id" :label="item.label" :value="item.id" /></el-select>
-                <h2 class="console-title">{{ pageTitle }}</h2>
-                <div class="inline-actions" style="margin-left: auto">
-                    <el-tag :type="loading ? 'info' : running ? 'success' : 'warning'" effect="light">{{ loading ? "正在连接" : running ? "服务运行中" : "服务未启动" }}</el-tag>
-                    <el-button circle text :icon="Refresh" :loading="refreshing" aria-label="刷新" @click="refreshAll()" />
-                    <el-button circle text :icon="InfoFilled" aria-label="技术详情" @click="detailsOpen = true" />
+                <div class="topbar-page-heading"><span>aimcp <i>/</i> 本机工作区</span><h2 class="console-title">{{ pageTitle }}</h2></div>
+                <div class="topbar-actions">
+                    <el-tag class="runtime-status-tag" :type="loading ? 'info' : running ? 'success' : 'warning'" effect="light"><span class="runtime-tag-dot" :class="{ 'is-running': running && !loading }"></span>{{ loading ? "正在连接" : running ? "服务运行中" : "服务未启动" }}</el-tag>
+                    <span class="topbar-action-divider"></span>
+                    <el-tooltip content="刷新状态" placement="bottom"><el-button circle text :icon="Refresh" :loading="refreshing" aria-label="刷新" @click="refreshAll()" /></el-tooltip>
+                    <el-tooltip content="运行详情" placement="bottom"><el-button circle text :icon="InfoFilled" aria-label="技术详情" @click="detailsOpen = true" /></el-tooltip>
                 </div>
             </header>
 
-            <div class="console-content">
+            <div class="console-content" :class="`page-${page}`">
                 <el-alert v-if="loadError || syncError" type="error" :closable="false" :title="loadError || syncError" style="margin-bottom: 16px" />
                 <HomeView v-if="page === 'home'" :status="status" :setup="setup" :projects="projects" :conversation-count="conversations.length" :loading="loading" :busy="busy" :result="connectionResult" @navigate="navigate" @add="addOpen = true" @start="startRuntime" @stop="stopRuntime" @check="checkPublicAccess" @repair="navigate('maintenance'); runDoctor(true)" />
                 <ProjectsView v-else-if="page === 'projects'" :projects="projects" :conversations="conversations" :busy="busy" @add="addOpen = true" @reactivate="reactivateProject" @remove="removeProject" @cleanup="cleanupConversations" />
@@ -405,8 +408,8 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
 
         <AddProjectDialog v-model="addOpen" :busy="busy" :add-project="addProject" />
 
-        <el-drawer v-model="detailsOpen" title="技术详情" size="min(480px, 92vw)">
-            <div class="inline-actions" style="margin-bottom: 18px"><el-button :icon="Setting" @click="detailsOpen = false; navigate('maintenance')">系统</el-button><el-button :icon="VideoPlay" :disabled="busy || !running" @click="restartRuntime">重启 Runtime</el-button><el-button type="danger" plain :icon="VideoPause" :disabled="busy || !running" @click="stopRuntime">停止 Runtime</el-button><el-button type="danger" text :icon="SwitchButton" :disabled="busy" @click="shutdownAll">完全关闭</el-button></div>
+        <el-drawer v-model="detailsOpen" class="technical-details-drawer" title="技术详情" size="min(480px, 92vw)">
+            <div class="inline-actions technical-action-bar"><el-button :icon="Setting" @click="detailsOpen = false; navigate('maintenance')">系统</el-button><el-button :icon="VideoPlay" :disabled="busy || !running" @click="restartRuntime">重启 Runtime</el-button><el-button type="danger" plain :icon="VideoPause" :disabled="busy || !running" @click="stopRuntime">停止 Runtime</el-button><el-button type="danger" text :icon="SwitchButton" :disabled="busy" @click="shutdownAll">完全关闭</el-button></div>
             <el-descriptions :column="1" border>
                 <el-descriptions-item label="Controller">运行中 · PID {{ status?.pid ?? "—" }}</el-descriptions-item>
                 <el-descriptions-item label="MCP Runtime">{{ running ? `运行中 · PID ${liveRuntime?.pid ?? "—"}` : "未启动" }}</el-descriptions-item>

@@ -289,6 +289,36 @@ gemini mcp list
 
 ---
 
+## 6. 连接 Gemini 应用（网页版）
+
+Gemini 网页应用可以通过“已连接的应用”连接 aimcp 的自定义 MCP。这个流程与 Gemini CLI 的 `gemini mcp add` 不同。
+
+### 准备公网 MCP 地址
+
+Gemini 应用需要访问公网 HTTPS 地址；`127.0.0.1` 只对本机有效，不能填入 Gemini 应用。
+
+```bash
+cd /path/to/your-project
+aimcp setup           # 尚未配置公网入口时运行
+aimcp start --public
+aimcp status          # 复制“公网地址”，例如 https://aimcp.example.com/mcp
+```
+
+如果已经配置好公网入口，只需确保 Runtime 以公网模式运行，再从 `aimcp status` 复制地址。setup 会显示连接密码；忘记密码时可运行 `aimcp auth` 重新设置。
+
+### 在 Gemini 应用中添加
+
+1. 在电脑上打开 [Gemini 网页应用](https://gemini.google.com/)，进入 **设置 → 个性化智能服务 → 已连接的应用**。
+2. 在“自定义应用”中选择添加应用，并粘贴 `aimcp status` 显示的公网 MCP 地址。
+3. 按页面提示继续；在 aimcp 授权页输入连接密码并确认授权。
+4. 回到 Gemini 对话，输入 `@` 并选择 aimcp，然后提出请求。需要时先说“切换到 `<项目名>` 项目”。
+
+自定义应用需从 Gemini 网页版添加；连接后可在网页版和手机应用中使用。Google 当前列出的条件包括：年满 18 岁、位于美国、使用个人 Google 账号、开启“活动记录”，且界面目前仅支持英文。若看不到“已连接的应用”或“自定义应用”，请查看 [Google 官方说明及可用条件](https://support.google.com/gemini/answer/17209137?hl=en)。
+
+> aimcp 可读取和修改已注册项目中的文件并执行命令。只注册你信任并希望交给 Gemini 操作的项目；公网连接密码不要分享给他人。
+
+---
+
 # 多项目怎么用？
 
 这是当前版本最重要的使用方式。

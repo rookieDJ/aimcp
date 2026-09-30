@@ -14,6 +14,7 @@ const emit = defineEmits<{
 const drawerOpen = ref(false);
 const drawerProject = ref<Project>();
 const activeConversations = computed(() => drawerProject.value ? props.conversations.filter((item) => item.projectId === drawerProject.value!.id) : []);
+const activeProjectCount = computed(() => props.projects.filter((item) => item.active).length);
 function conversationCount(project: Project): number { return props.conversations.filter((item) => item.projectId === project.id).length; }
 function openProject(project: Project): void { drawerProject.value = project; drawerOpen.value = true; }
 watch(() => props.projects, (items) => {
@@ -26,16 +27,15 @@ watch(() => props.projects, (items) => {
 
 <template>
     <div>
-        <div class="page-heading">
-            <div class="section-heading" style="margin-bottom: 0">
-                <div><h1>项目</h1><p>管理 MCP 客户端可以访问的项目，以及各项目的会话绑定。</p></div>
-                <el-button type="primary" :icon="FolderAdd" @click="emit('add')">添加项目</el-button>
-            </div>
+        <div class="page-heading projects-heading">
+            <div class="page-heading-copy"><span class="page-eyebrow">01 / WORKSPACE</span><h1>项目</h1><p>管理 MCP 客户端可以访问的项目，以及各项目的会话绑定。</p></div>
+            <div class="projects-heading-side"><div class="projects-heading-stat"><strong>{{ activeProjectCount }}</strong><span>个活动项目</span></div><el-button type="primary" :icon="FolderAdd" @click="emit('add')">添加项目</el-button></div>
         </div>
 
-        <el-card shadow="never">
+        <el-card class="projects-card" shadow="never">
+            <div class="projects-card-heading"><div><span class="projects-card-kicker">PROJECT REGISTRY</span><strong>已注册项目</strong></div><el-tag effect="plain">{{ projects.length }} 个</el-tag></div>
             <el-empty v-if="!projects.length" description="还没有项目"><el-button type="primary" @click="emit('add')">选择项目文件夹</el-button></el-empty>
-            <el-table v-else :data="projects" style="width: 100%" @row-click="openProject">
+            <el-table v-if="projects.length" class="project-desktop-table" :data="projects" style="width: 100%" @row-click="openProject">
                 <el-table-column label="项目" min-width="280">
                     <template #default="{ row }"><div class="project-name">{{ row.name }}</div><div class="project-path">{{ row.path }}</div></template>
                 </el-table-column>
@@ -45,10 +45,26 @@ watch(() => props.projects, (items) => {
                     <template #default="{ row }"><el-button text type="primary" @click.stop="openProject(row)">管理</el-button><el-button v-if="row.active" text type="danger" :disabled="busy" @click.stop="emit('remove', row)">停用</el-button><el-button v-else text type="primary" :disabled="busy" @click.stop="emit('reactivate', row)">重新启用</el-button></template>
                 </el-table-column>
             </el-table>
+            <div v-if="projects.length" class="project-mobile-list">
+                <article v-for="project in projects" :key="project.id" class="project-mobile-item">
+                    <div class="project-mobile-heading">
+                        <div class="project-mobile-identity"><strong>{{ project.name }}</strong><code>{{ project.path }}</code></div>
+                        <el-tag :type="project.active ? 'success' : 'info'" effect="light">{{ project.active ? "可用" : "已停用" }}</el-tag>
+                    </div>
+                    <div class="project-mobile-footer">
+                        <span class="project-mobile-sessions">{{ conversationCount(project) }} 个会话</span>
+                        <div class="project-mobile-actions">
+                            <el-button size="small" @click="openProject(project)">管理</el-button>
+                            <el-button v-if="project.active" size="small" text type="danger" :disabled="busy" @click="emit('remove', project)">停用</el-button>
+                            <el-button v-else size="small" text type="primary" :disabled="busy" @click="emit('reactivate', project)">重新启用</el-button>
+                        </div>
+                    </div>
+                </article>
+            </div>
         </el-card>
         <p v-if="conversations.length" class="muted small" style="margin-top: 12px">会话编号只用于区分项目选择记录，不代表客户端会话仍在运行。</p>
 
-        <el-drawer v-model="drawerOpen" :title="drawerProject?.name ?? '项目详情'" size="min(520px, 92vw)">
+        <el-drawer v-model="drawerOpen" class="project-details-drawer" :title="drawerProject?.name ?? '项目详情'" size="min(520px, 92vw)">
             <template v-if="drawerProject">
                 <el-descriptions :column="1" border>
                     <el-descriptions-item label="状态"><el-tag :type="drawerProject.active ? 'success' : 'info'">{{ drawerProject.active ? "可用" : "已停用" }}</el-tag></el-descriptions-item>

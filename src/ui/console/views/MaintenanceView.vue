@@ -66,26 +66,27 @@ function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "dange
 </script>
 
 <template>
-    <div>
-        <div class="page-heading"><h1>系统</h1><p>管理本机能力源、诊断环境、查看日志和更新 aimcp。</p></div>
-        <el-card shadow="never">
-            <el-tabs v-model="tab">
+    <div class="maintenance-page">
+        <div class="page-heading maintenance-heading"><div class="page-heading-copy"><span class="page-eyebrow">04 / SYSTEM</span><h1>系统</h1><p>诊断运行环境、配置工具来源、查看日志并管理 aimcp 更新。</p></div><div class="maintenance-heading-note"><span class="maintenance-note-mark">SYS</span><span>本机维护</span></div></div>
+        <el-card class="maintenance-card" shadow="never">
+            <el-tabs v-model="tab" class="maintenance-tabs">
                 <el-tab-pane label="检查与修复" name="check">
                     <div class="section-heading">
                         <div><h2>服务诊断</h2><p>普通检查只读；“检查并修复”只执行安全的本机修复。</p></div>
                         <div class="inline-actions"><el-button :disabled="busy" @click="emit('doctor', false)">开始检查</el-button><el-button type="primary" :icon="Tools" :disabled="busy" @click="emit('doctor', true)">检查并修复</el-button></div>
                     </div>
                     <OperationPanel v-if="operation?.kind.startsWith('doctor')" :operation="operation" @cancel="emit('cancelOperation', $event)" />
-                    <div v-if="doctor?.fixes?.length || doctor?.warnings?.length || doctor?.report?.checks?.length" style="margin-top: 18px">
+                    <div v-if="doctor?.fixes?.length || doctor?.warnings?.length || doctor?.report?.checks?.length" class="doctor-results">
                         <div v-for="fix in doctor?.fixes" :key="fix" class="status-line"><div><strong>已完成修复</strong><div class="muted small">{{ fix }}</div></div><el-tag type="success">完成</el-tag></div>
                         <div v-for="warning in doctor?.warnings" :key="warning" class="status-line"><div><strong>自动修复未完成</strong><div class="muted small">{{ warning }}</div></div><el-tag type="warning">注意</el-tag></div>
                         <div v-for="check in doctor?.report?.checks" :key="`${check.label}-${check.detail}`" class="status-line"><div><strong>{{ friendlyCheck(check.label, check.detail).title }}</strong><div class="muted small">{{ friendlyCheck(check.label, check.detail).detail }}</div></div><el-tag :type="tagType(check.level)">{{ check.level === 'ok' ? '正常' : check.level === 'warn' ? '注意' : '处理' }}</el-tag></div>
                     </div>
                 </el-tab-pane>
-                <el-tab-pane label="工具与技能" name="capabilities"><CapabilitiesPanel :setup="setup" :busy="busy" :save-capabilities="saveCapabilities" /></el-tab-pane>
+                <el-tab-pane label="工具与技能" name="capabilities"><CapabilitiesPanel class="maintenance-capabilities" :setup="setup" :busy="busy" :save-capabilities="saveCapabilities" /></el-tab-pane>
                 <el-tab-pane label="运行日志" name="logs">
                     <div class="section-heading"><div><h2>运行日志</h2><p>实时查看 Runtime、项目工具和公网连接日志。</p></div><div class="inline-actions"><el-input-number v-model="lines" :min="1" :max="5000" :controls="false" style="width: 100px" /><el-button :icon="Refresh" @click="startLogStream">应用行数</el-button></div></div>
                     <el-alert v-if="logError" type="error" :closable="false" :title="logError" style="margin-bottom: 12px" />
+                    <div class="log-toolbar"><span><i></i>实时日志流</span><code>最近 {{ lines }} 行</code></div>
                     <pre class="log-view">{{ logs }}</pre>
                 </el-tab-pane>
                 <el-tab-pane label="软件更新" name="update">

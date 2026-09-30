@@ -58,7 +58,7 @@ function close(): void {
 </script>
 
 <template>
-    <el-dialog :model-value="modelValue" title="添加项目" width="min(560px, 92vw)" :close-on-click-modal="!busy" @close="close">
+    <el-dialog :model-value="modelValue" class="console-dialog add-project-dialog" title="添加项目" width="min(560px, 92vw)" :close-on-click-modal="!busy" @close="close">
         <p class="muted" style="margin-top: -8px">选择这台电脑上的项目文件夹，连接到 aimcp 的客户端就可以在其中工作。</p>
         <el-button class="break-all" style="width: 100%; height: auto; min-height: 64px; margin-top: 16px" :loading="picking" :disabled="busy" @click="choose">
             <el-icon><FolderOpened /></el-icon>

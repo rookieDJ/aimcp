@@ -1,7 +1,7 @@
 import { createApp } from "vue";
 import "element-plus/theme-chalk/dark/css-vars.css";
-import "./styles.css";
 import App from "./App.vue";
+import "./styles.css";
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const applyTheme = () => document.documentElement.classList.toggle("dark", darkQuery.matches);
