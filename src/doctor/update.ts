@@ -56,7 +56,7 @@ export async function runSelfUpdate(options: SelfUpdateOptions = {}): Promise<vo
     }
 
     options.signal?.throwIfAborted();
-    printInfo("正在检查并安装最新版 codex-mcp…");
+    printInfo("正在检查并安装最新版 aimcp…");
     const exitCode = await runInstaller(invocation, options);
     if (exitCode !== 0) {
         throw new Error(`更新没有完成（退出码 ${exitCode}）`);
@@ -69,6 +69,7 @@ async function runInstaller(invocation: UpdateInstallerInvocation, options: Self
         const child = spawn(invocation.file, invocation.args, {
             env: {
                 ...process.env,
+                AIMCP_UPDATE: "1",
                 CODEX_MCP_UPDATE: "1",
             },
             stdio: captureOutput ? ["ignore", "pipe", "pipe"] : "inherit",

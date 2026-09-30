@@ -162,7 +162,7 @@ export async function createOAuthRuntime(resourceUrl: URL): Promise<OAuthRuntime
             issuerUrl,
             resourceServerUrl: resourceUrl,
             scopesSupported: [...OAUTH_SCOPES],
-            resourceName: "codex-mcp",
+            resourceName: "aimcp",
             authorizationOptions: { rateLimit: false },
             tokenOptions: { rateLimit: false },
             clientRegistrationOptions: {

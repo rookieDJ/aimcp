@@ -4,10 +4,15 @@ $Utf8Output = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $Utf8Output
 $OutputEncoding = $Utf8Output
 
-$Package = $env:CODEX_MCP_PACKAGE
+$Package = $env:AIMCP_PACKAGE
 if (-not $Package) {
-    $Package = "https://github.com/meesii/codex-mcp/releases/latest/download/codex-mcp.tgz"
+    $Package = $env:CODEX_MCP_PACKAGE
 }
+if (-not $Package) {
+    $Package = "https://github.com/rookieDJ/aimcp/releases/latest/download/aimcp.tgz"
+}
+$Update = $env:AIMCP_UPDATE
+if (-not $Update) { $Update = $env:CODEX_MCP_UPDATE }
 
 function Write-Status([string]$Marker, [ConsoleColor]$Color, [string]$Message) {
     $text = "$Marker $Message"
@@ -55,10 +60,10 @@ if ($nodeMajor -lt 22) {
 $installRoot = Join-Path $env:USERPROFILE ".codex-mcp\npm"
 New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
 
-if ($env:CODEX_MCP_UPDATE -eq "1") {
-    Info "正在更新 codex-mcp…"
+if ($Update -eq "1") {
+    Info "正在更新 aimcp…"
 } else {
-    Info "正在安装 codex-mcp…"
+    Info "正在安装 aimcp…"
 }
 & npm install --global --prefix $installRoot $Package
 if ($LASTEXITCODE -ne 0) {
@@ -70,7 +75,7 @@ if (-not (Test-Path -LiteralPath $cmdPath)) {
     Fail "安装完成，但没有找到 aimcp 命令：$cmdPath"
 }
 
-$toolsCli = Join-Path $installRoot "node_modules\@meesii\codex-mcp\dist\managed-tools\cli.js"
+$toolsCli = Join-Path $installRoot "node_modules\@rookiedj\aimcp\dist\managed-tools\cli.js"
 if (-not (Test-Path -LiteralPath $toolsCli)) {
     Fail "安装完成，但缺少运行组件管理程序。"
 }
@@ -102,7 +107,7 @@ Write-Host ""
 Success "aimcp $version"
 Success "命令目录已加入 PATH：$installRoot"
 Write-Host ""
-if ($env:CODEX_MCP_UPDATE -eq "1") {
+if ($Update -eq "1") {
     Success "更新完成。配置、连接密码和 Tunnel 信息保持不变。"
     Warn "如果 aimcp 服务正在运行，请重启它；现有进程不会自动加载更新后的 core tool schema。"
 } else {

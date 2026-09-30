@@ -41,7 +41,7 @@ export async function runFirstTimeSetup(): Promise<void> {
         return;
     }
 
-    printIntro("设置 codex-mcp");
+    printIntro("设置 aimcp");
     printInfo("先完成并验证公网连接，再生成 MCP 连接密码；外部能力属于可选增强项。");
 
     const { result, verification } = await configurePublicAccess({ forceWizard: false });
@@ -83,7 +83,7 @@ async function runSetupManager(
                       {
                           value: "cloudflare",
                           label: "重新登录 / 切换 Cloudflare 账号",
-                          hint: "只重置 codex-mcp 私有登录，不修改系统 ~/.cloudflared",
+                          hint: "只重置 aimcp 私有登录，不修改系统 ~/.cloudflared",
                       },
                   ]),
             {
@@ -123,7 +123,7 @@ async function runSetupManager(
         );
         printSummary("检查完成", [
             { label: "公网地址", value: verification.publicMcpUrl },
-            { label: "状态", value: "已确认到达当前 codex-mcp 实例" },
+            { label: "状态", value: "已确认到达当前 aimcp 实例" },
         ]);
         printOutro("未修改配置");
         return;

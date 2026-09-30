@@ -550,7 +550,7 @@ function readyInfo(name: string, client: Client): DownstreamServerInfo {
 }
 
 async function openConnection(config: McpServerConfig): Promise<DownstreamConnection> {
-    const client = new Client({ name: "codex-mcp", version: PACKAGE_VERSION });
+    const client = new Client({ name: "aimcp", version: PACKAGE_VERSION });
     const state = createTransportState(config);
     const connection: DownstreamConnection = {
         client,

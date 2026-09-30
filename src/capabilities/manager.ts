@@ -155,7 +155,7 @@ export class CapabilityManager {
             }
         }
 
-        // codex-mcp's own mcp.json remains the explicit highest-priority override layer.
+        // aimcp's own mcp.json remains the explicit highest-priority override layer.
         const overrides = loadUserMcpOverrides();
         for (const name of overrides.disabledServers) delete mcpServers[name];
         Object.assign(mcpServers, overrides.mcpServers);
@@ -168,13 +168,13 @@ export class CapabilityManager {
         const context = this.getContext();
         const targets: CapabilityWatchTarget[] = [
             {
-                key: "codex-mcp-user-config",
+                key: "aimcp-user-config",
                 directory: join(this.homeDirectory, ".codex-mcp"),
                 fileName: "config.json",
                 recursiveWhenExact: false,
             },
             {
-                key: "codex-mcp-mcp-overrides",
+                key: "aimcp-mcp-overrides",
                 directory: join(this.homeDirectory, ".codex-mcp"),
                 fileName: "mcp.json",
                 recursiveWhenExact: false,

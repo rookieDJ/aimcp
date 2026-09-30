@@ -142,6 +142,7 @@ test("Web Console keeps Element Plus component-scoped imports and a focused info
 test("Cloudflare tunnel identity canonicalizes equivalent home path spellings and symlink aliases", async () => {
     const { defaultTunnelName } = await import(new URL("dist/tunnel/setup.js", root).href);
     const host = "e2e-host";
+    assert.match(defaultTunnelName(host, "/tmp/codex-home"), /^aimcp-/);
     assert.equal(
         defaultTunnelName(host, "/tmp/codex-home"),
         defaultTunnelName(host, "/tmp//codex-home/./"),
@@ -243,6 +244,7 @@ test("project add changes durable project state without starting Controller or R
 test("plain start defaults to local mode, persists the actual intent, and reuses it", async () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-start-intent-"));
     const project = mkdtempSync(join(tmpdir(), "codex-mcp-start-intent-root-"));
+    writeFileSync(join(project, "package.json"), JSON.stringify({ name: "@rookiedj/aimcp", displayName: "aimcp" }));
     const configDir = join(home, ".codex-mcp");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(join(configDir, "config.json"), JSON.stringify({
@@ -252,8 +254,11 @@ test("plain start defaults to local mode, persists the actual intent, and reuses
     try {
         const first = run(["start"], home, project);
         assert.equal(first.code, 0, first.output);
+        assert.match(first.output, /切换到 aimcp 项目/);
+        assert.doesNotMatch(first.output, /@meesii\/codex-mcp/);
         let status = JSON.parse(run(["status", "--json"], home, project).output);
         assert.equal(status.daemon.mode, "local");
+        assert.equal(status.projects[0].name, "aimcp");
         const saved = JSON.parse(readFileSync(join(configDir, "config.json"), "utf8"));
         assert.deepEqual(saved.runtime, { mode: "local", noTunnel: true, tunnelLogs: false });
 
@@ -298,7 +303,7 @@ test("open starts only the local control plane and exposes the Web Console", asy
         assert.ok(result.output.includes(panelUrl), result.output);
         const panel = await fetch(panelUrl);
         assert.equal(panel.status, 200);
-        assert.match(await panel.text(), /codex-mcp 本机工作区/);
+        assert.match(await panel.text(), /aimcp 本机工作区/);
         const cliProject = mkdtempSync(join(tmpdir(), "codex-mcp-open-cli-project-"));
         const webProject = mkdtempSync(join(tmpdir(), "codex-mcp-open-web-project-"));
         const snapshotHeaders = { "x-codex-controller-token": controller.controlToken };
@@ -497,7 +502,7 @@ test("persistent local Controller exposes writable Web Console and survives Runt
         const panel = await fetch(panelUrl);
         const panelHtml = await panel.text();
         assert.equal(panel.status, 200);
-        assert.match(panelHtml, /codex-mcp 本机工作区/);
+        assert.match(panelHtml, /aimcp 本机工作区/);
         assert.match(panelHtml, /data-csrf-token="[A-Za-z0-9_-]+"/);
         assert.match(panelHtml, /src="\/console\/app\.js"/);
         assert.match(panelHtml, /href="\/console\/app\.css"/);

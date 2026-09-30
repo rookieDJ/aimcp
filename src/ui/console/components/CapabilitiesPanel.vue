@@ -75,7 +75,7 @@ function detected(id: string): boolean {
                 <div class="capability-title">
                     <div>
                         <div class="inline-actions"><strong>{{ id === 'agents' ? 'Agent Skills' : id === 'codex' ? 'Codex' : 'Claude Code' }}</strong><el-tag v-if="detected(id)" size="small" effect="plain">已检测到</el-tag></div>
-                        <div class="muted small">允许 codex-mcp 读取这个来源中的工具和技能。</div>
+                        <div class="muted small">允许 aimcp 读取这个来源中的工具和技能。</div>
                     </div>
                     <el-switch :model-value="capabilities.sources[id]?.enabled ?? false" @change="updateSource(id, 'enabled', Boolean($event))" />
                 </div>

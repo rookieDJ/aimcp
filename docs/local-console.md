@@ -2,7 +2,7 @@
 
 ## 产品定位
 
-codex-mcp Web 不是只读状态页，而是 CLI 的本机 GUI 控制面。除内部 `daemon` 入口和机器输出格式外，所有用户级 CLI 能力都必须有对应 Web 操作，并且 CLI 与 Web 调用同一套业务 service。
+aimcp Web 不是只读状态页，而是 CLI 的本机 GUI 控制面。除内部 `daemon` 入口和机器输出格式外，所有用户级 CLI 能力都必须有对应 Web 操作，并且 CLI 与 Web 调用同一套业务 service。
 
 ## 进程模型
 

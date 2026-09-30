@@ -166,7 +166,7 @@ export async function discoverCloudflareSetup(
         complete: discovery.complete,
         ...(currentDomain ? { currentDomain } : {}),
         ...(preferredZone ? { preferredZone } : {}),
-        defaultPrefix: previousPrefix && !previousPrefix.includes(".") ? previousPrefix : "codex-mcp",
+        defaultPrefix: previousPrefix && !previousPrefix.includes(".") ? previousPrefix : "aimcp",
         tunnelName: previousManaged?.tunnelName ?? defaultTunnelName(),
     };
 }
@@ -309,7 +309,7 @@ async function runConfigWizard(
     printInfo(`验证成功后才会提交到：${getUserConfigPath()}`);
 
     const useCloudflared = await askYesNo(
-        "要让 codex-mcp 自动配置 Cloudflare Tunnel 吗？",
+        "要让 aimcp 自动配置 Cloudflare Tunnel 吗？",
         userConfig.publicAccess?.kind !== "external",
     );
     if (!useCloudflared) {
@@ -363,7 +363,7 @@ async function runConfigWizard(
     const zone = discovery.zones.length === 1
         ? discovery.zones[0]!
         : await askSelect(
-              "请选择用于 codex-mcp 的 Cloudflare 域名",
+              "请选择用于 aimcp 的 Cloudflare 域名",
               discovery.zones.map((value) => ({ value, label: value })),
               preferredZone,
           );
@@ -372,7 +372,7 @@ async function runConfigWizard(
     if (!zoneId) throw new Error(`无法确定 Cloudflare zone ID：${zone}`);
 
     const previousPrefix = subdomainPrefixForZone(previousDomain, zone);
-    const prefixDefault = previousPrefix && !previousPrefix.includes(".") ? previousPrefix : "codex-mcp";
+    const prefixDefault = previousPrefix && !previousPrefix.includes(".") ? previousPrefix : "aimcp";
     const domain = await askCloudflareHostname(zone, prefixDefault);
 
     const preferredTunnelName = previousManaged?.tunnelName ?? defaultTunnelName();
@@ -529,13 +529,13 @@ export function defaultTunnelName(
         .update(`${machineHostname}\0${canonicalHome}`, "utf8")
         .digest("hex")
         .slice(0, 6);
-    return `codex-mcp-${slug}-${suffix}`;
+    return `aimcp-${slug}-${suffix}`;
 }
 
 export function cloudflareManagedHostname(zone: string, prefix: string): string {
     const normalizedPrefix = prefix.trim();
     if (!normalizedPrefix) {
-        throw new Error("需要填写子域名前缀，例如 codex-mcp。");
+        throw new Error("需要填写子域名前缀，例如 aimcp。");
     }
     if (normalizedPrefix.includes(".")) {
         throw new Error(

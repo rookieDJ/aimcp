@@ -245,20 +245,20 @@ function restartRuntime(): void {
     }, "MCP 服务已重新启动");
 }
 function stopRuntime(): void {
-    void confirmAction("停止 MCP 服务？", "连接到 codex-mcp 的客户端将暂时无法使用项目。控制面板会继续运行。", "停止服务", () => runAction(async () => {
+    void confirmAction("停止 MCP 服务？", "连接到 aimcp 的客户端将暂时无法使用项目。控制面板会继续运行。", "停止服务", () => runAction(async () => {
         connectionResult.value = undefined;
         await api("/api/runtime/stop", { method: "POST", body: {} });
         await refreshLive(false);
     }, "MCP 服务已停止"), true);
 }
 function shutdownAll(): void {
-    void confirmAction("完全关闭 codex-mcp？", "MCP Runtime、Tunnel 和 Web Console 都会退出。项目和连接配置会保留。", "完全关闭", () => runAction(async () => {
+    void confirmAction("完全关闭 aimcp？", "MCP Runtime、Tunnel 和 Web Console 都会退出。项目和连接配置会保留。", "完全关闭", () => runAction(async () => {
         await api("/api/controller/shutdown", { method: "POST", body: {} });
         if (pollTimer !== undefined) window.clearInterval(pollTimer);
         pollTimer = undefined;
         detailsOpen.value = false;
         controllerClosed.value = true;
-    }, "codex-mcp 已关闭"), true);
+    }, "aimcp 已关闭"), true);
 }
 async function addProject(path: string): Promise<boolean> {
     return await runAction(async () => {
@@ -354,7 +354,7 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
     <div v-if="controllerClosed" class="console-closed">
         <div class="console-closed-card">
             <div class="console-logo">C</div>
-            <h1>codex-mcp 已关闭</h1>
+            <h1>aimcp 已关闭</h1>
             <p>Runtime 和 Web Console 都已退出，项目与连接配置仍然保留。</p>
             <code>aimcp open</code>
             <div class="muted small">需要重新管理时，在终端运行上面的命令。</div>
@@ -364,7 +364,7 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
         <aside class="console-sidebar">
             <div class="console-brand" :class="{ 'is-collapsed': sidebarCollapsed }">
                 <span class="console-logo">C</span>
-                <span v-if="!sidebarCollapsed" class="console-brand-text">codex-mcp</span>
+                <span v-if="!sidebarCollapsed" class="console-brand-text">aimcp</span>
             </div>
             <el-menu class="console-menu" :default-active="page" :collapse="sidebarCollapsed" :collapse-transition="false" @select="handleMenuSelect">
                 <el-menu-item v-for="item in navigation" :key="item.id" :index="item.id">

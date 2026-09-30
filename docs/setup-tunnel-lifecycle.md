@@ -11,7 +11,7 @@
 公网配置只有两种已提交状态：
 
 - `external`：用户提供 HTTPS 入口，仅保存 hostname。
-- `cloudflare`：codex-mcp 管理 locally-managed Tunnel，保存 hostname、Tunnel ID/name、cloudflared 路径和账号/zone identity。
+- `cloudflare`：aimcp 管理 locally-managed Tunnel，保存 hostname、Tunnel ID/name、cloudflared 路径和账号/zone identity。升级前创建的 Tunnel 名称仍按已保存的配置复用。
 
 运行意图与公网配置分开：本机或公网、是否启动 managed sidecar、是否镜像 Tunnel 日志。daemon state 必须保存完整运行意图，使 restart 和 setup 后恢复不会改变语义。
 

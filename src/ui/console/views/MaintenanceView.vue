@@ -67,7 +67,7 @@ function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "dange
 
 <template>
     <div>
-        <div class="page-heading"><h1>系统</h1><p>管理本机能力源、诊断环境、查看日志和更新 codex-mcp。</p></div>
+        <div class="page-heading"><h1>系统</h1><p>管理本机能力源、诊断环境、查看日志和更新 aimcp。</p></div>
         <el-card shadow="never">
             <el-tabs v-model="tab">
                 <el-tab-pane label="检查与修复" name="check">

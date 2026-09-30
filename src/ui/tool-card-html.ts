@@ -5,7 +5,7 @@ export function toolCardHtml(toolName?: string): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>codex-mcp</title>
+<title>aimcp</title>
 <style>
   :root {
     color-scheme: light dark;

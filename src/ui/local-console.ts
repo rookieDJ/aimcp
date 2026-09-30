@@ -14,12 +14,12 @@ export function localConsoleHtml(options: LocalConsoleHtmlOptions): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>codex-mcp 本机工作区</title>
+<title>aimcp 本机工作区</title>
 <link rel="stylesheet" href="/console/app.css" nonce="${nonce}">
 </head>
 <body>
 <div id="console-root" data-csrf-token="${csrf}" data-version="${version}"></div>
-<noscript>请启用 JavaScript 后使用 codex-mcp 控制台。</noscript>
+<noscript>请启用 JavaScript 后使用 aimcp 控制台。</noscript>
 <script src="/console/app.js" nonce="${nonce}" defer></script>
 </body>
 </html>`;

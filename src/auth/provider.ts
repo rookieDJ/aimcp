@@ -91,7 +91,7 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
     ): Promise<OAuthClientInformationFull> {
         if (input.token_endpoint_auth_method !== "none" || input.client_secret) {
             throw new InvalidClientMetadataError(
-                'codex-mcp only supports public OAuth clients with token_endpoint_auth_method="none" and PKCE',
+                'aimcp only supports public OAuth clients with token_endpoint_auth_method="none" and PKCE',
             );
         }
         try {
@@ -464,7 +464,7 @@ function renderLoginPage(input: {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>连接 codex-mcp</title>
+<title>连接 aimcp</title>
 <style>
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f6f7f9;color:#18181b}
 main{max-width:420px;margin:10vh auto;padding:28px;background:#fff;border:1px solid #e4e4e7;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
@@ -474,8 +474,8 @@ button{width:100%;margin-top:18px;padding:11px 14px;border:0;border-radius:8px;b
 </style>
 </head>
 <body><main>
-<h1>连接到 codex-mcp</h1>
-<p><strong>${clientName}</strong> 想连接这台电脑上的 codex-mcp。确认是你本人操作后，输入连接密码。</p>
+<h1>连接到 aimcp</h1>
+<p><strong>${clientName}</strong> 想连接这台电脑上的 aimcp。确认是你本人操作后，输入连接密码。</p>
 <div class="meta">权限：${scopes}</div>
 <div class="meta">连接返回到：<strong>${redirectHost}</strong><br>${redirectUri}</div>
 ${loopbackWarning}

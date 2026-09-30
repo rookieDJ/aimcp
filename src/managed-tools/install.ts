@@ -48,7 +48,7 @@ export async function ensureManagedTool(
         };
     }
 
-    const tempRoot = await mkdtemp(join(tmpdir(), "codex-mcp-tools-"));
+    const tempRoot = await mkdtemp(join(tmpdir(), "aimcp-tools-"));
     try {
         const assetPath = join(tempRoot, "asset");
         await downloadVerified(spec.url, assetPath, spec.sha256);
@@ -120,7 +120,7 @@ async function downloadVerified(
         timeoutMs: 600_000,
         maxRedirects: 6,
         maxBytes: 128 * 1024 * 1024,
-        headers: { "user-agent": "codex-mcp-managed-tools" },
+        headers: { "user-agent": "aimcp-managed-tools" },
     });
     if (response.status !== 200) {
         throw new Error(`下载失败（HTTP ${response.status}）`);

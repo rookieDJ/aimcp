@@ -24,7 +24,7 @@ success() {
 }
 
 if [ ! -e "$INSTALL_ROOT" ] && [ ! -e "$MANAGED_BIN" ]; then
-  info "codex-mcp 程序已经不在这台电脑上了。"
+  info "aimcp 程序已经不在这台电脑上了。"
   exit 0
 fi
 
@@ -33,9 +33,9 @@ rm -rf "$INSTALL_ROOT" "$MANAGED_BIN"
 remove_path_line() {
   profile="$1"
   [ -f "$profile" ] || return 0
-  tmp="${profile}.codex-mcp.tmp.$$"
+  tmp="${profile}.aimcp.tmp.$$"
   cp -p "$profile" "$tmp"
-  awk '$0 != "# codex-mcp" && $0 != "export PATH=\"$HOME/.codex-mcp/npm/bin:$PATH\""' "$profile" > "$tmp"
+  awk '$0 != "# aimcp" && $0 != "# codex-mcp" && $0 != "export PATH=\"$HOME/.codex-mcp/npm/bin:$PATH\""' "$profile" > "$tmp"
   mv "$tmp" "$profile"
 }
 
@@ -44,7 +44,7 @@ remove_path_line "${HOME}/.bashrc"
 remove_path_line "${HOME}/.bash_profile"
 remove_path_line "${HOME}/.profile"
 
-success "codex-mcp 程序已删除。"
+success "aimcp 程序已删除。"
 printf '%s\n' ""
 info "你的配置、连接密码和 Tunnel 信息仍保留在：${HOME}/.codex-mcp"
-info "以后重新安装 codex-mcp 时可以继续使用这些配置。"
+info "以后重新安装 aimcp 时可以继续使用这些配置。"

@@ -19,7 +19,7 @@ export interface VerifyTunnelRouteOptions {
 }
 
 /**
- * Prove that a public hostname reaches the exact local codex-mcp process.
+ * Prove that a public hostname reaches the exact local aimcp process.
  *
  * Cloudflare proxied CNAMEs are flattened, so public DNS cannot reliably reveal
  * which tunnel UUID a hostname targets. The server therefore exposes an
@@ -67,7 +67,7 @@ export async function verifyTunnelRoute(
             });
             const body = response.body.toString("utf8");
             if (response.status === 200 && body === probe.expectedBody) return;
-            lastDetail = `HTTP ${response.status}，但返回的不是当前 codex-mcp 实例`;
+            lastDetail = `HTTP ${response.status}，但返回的不是当前 aimcp 实例`;
         } catch (error) {
             throwIfAborted(options.signal);
             lastDetail = error instanceof Error ? error.message : "未知网络错误";
@@ -83,11 +83,11 @@ export async function verifyTunnelRoute(
 }
 
 export function tunnelVerificationFailureMessage(origin: string, detail: string): string {
-    const prefix = `无法通过公网地址访问当前 codex-mcp（${origin}）：${detail}。`;
+    const prefix = `无法通过公网地址访问当前 aimcp（${origin}）：${detail}。`;
     if (isTlsHandshakeFailure(detail)) {
         return (
             prefix +
-            "HTTPS TLS 握手在到达 Tunnel 之前失败。若使用 Cloudflare 默认 Universal SSL，请确认 hostname 仅比所选 Cloudflare 域名多一级（例如 codex-mcp.example.com，而不是 codex.mcp.example.com）；否则请为该 hostname 配置可覆盖它的 Cloudflare Edge Certificate。"
+            "HTTPS TLS 握手在到达 Tunnel 之前失败。若使用 Cloudflare 默认 Universal SSL，请确认 hostname 仅比所选 Cloudflare 域名多一级（例如 aimcp.example.com，而不是 aimcp.mcp.example.com）；否则请为该 hostname 配置可覆盖它的 Cloudflare Edge Certificate。"
         );
     }
     return prefix + "请检查域名是否指向当前 Tunnel，以及 Tunnel 是否已经启动。";

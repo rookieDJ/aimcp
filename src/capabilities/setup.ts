@@ -44,7 +44,7 @@ export async function configureCapabilitySources(
     }
 
     const action = await askSelect(
-        "是否让 codex-mcp 使用这些已有能力？",
+        "是否让 aimcp 使用这些已有能力？",
         [
             { value: "all", label: "使用检测到的全部能力", hint: "推荐；只读取源配置，不复制" },
             { value: "custom", label: "自定义", hint: "分别选择 MCP / Skills" },

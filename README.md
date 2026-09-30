@@ -614,6 +614,8 @@ aimcp setup
 
 aimcp 的用户数据默认保存在：
 
+目录名沿用旧版，以便现有项目、连接密码和 Tunnel 配置在升级后继续使用。
+
 ```text
 ~/.codex-mcp/
 ```
@@ -879,7 +881,7 @@ aimcp restart
 如果是通过本项目的 `npm link` 安装的：
 
 ```bash
-npm unlink -g @meesii/codex-mcp
+npm unlink -g @rookiedj/aimcp
 ```
 
 此操作只移除全局命令，不会删除用户配置和连接密码。

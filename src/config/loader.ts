@@ -30,7 +30,7 @@ export interface ServerConfig {
 export interface LoadConfigOptions {
     /** Override project root (CLI `--root`); defaults to `process.cwd()`. */
     projectRoot?: string;
-    /** Values from `~/.codex-mcp/config.json`. */
+    /** Values from the existing `~/.codex-mcp/config.json` compatibility path. */
     userConfig?: UserConfig;
     /**
      * When true, do not require a public domain / allowed hosts
@@ -90,7 +90,7 @@ export function resolveWidgetDomain(
     port: number,
 ): string {
     if (allowedHosts.length > 0) {
-        return `https://codex-mcp.${allowedHosts[0]}`;
+        return `https://aimcp.${allowedHosts[0]}`;
     }
     return `http://${loopbackHost(host)}:${port}`;
 }

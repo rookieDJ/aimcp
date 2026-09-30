@@ -162,7 +162,7 @@ export async function checkPublicAccess(): Promise<SetupPublicVerificationResult
         return await verifyRunningPublicRoute(access.domain, host, port);
     }
     const portState = await inspectSetupPort(host, port);
-    if (portState === "codex-mcp") {
+    if (portState === "aimcp") {
         return await verifyRunningPublicRoute(access.domain, host, port);
     }
     if (portState === "occupied") {

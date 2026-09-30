@@ -200,10 +200,10 @@ function normalizeClaudeServer(name: string, value: unknown, cwd: string): McpSe
     }
     const raw = value as Record<string, unknown>;
     if (raw.headersHelper !== undefined) {
-        throw new Error(`MCP ${name} uses headersHelper, which codex-mcp cannot safely reproduce`);
+        throw new Error(`MCP ${name} uses headersHelper, which aimcp cannot safely reproduce`);
     }
     if (raw.oauth !== undefined) {
-        throw new Error(`MCP ${name} uses Claude-managed OAuth, which codex-mcp does not currently import`);
+        throw new Error(`MCP ${name} uses Claude-managed OAuth, which aimcp does not currently import`);
     }
 
     const type = typeof raw.type === "string" ? raw.type.trim().toLowerCase() : undefined;

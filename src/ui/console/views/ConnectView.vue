@@ -29,7 +29,7 @@ const cloudflareOpen = ref(false);
 const externalOpen = ref(false);
 const passwordOpen = ref(false);
 const zone = ref("");
-const prefix = ref("codex-mcp");
+const prefix = ref("aimcp");
 const overwrite = ref(false);
 const externalDomain = ref("");
 const password = ref("");
@@ -91,7 +91,7 @@ async function generate(): Promise<void> {
             <template v-if="zones.length">
                 <el-form label-position="top">
                     <el-form-item label="域名"><el-select v-model="zone" style="width: 100%"><el-option v-for="item in zones" :key="item" :label="item" :value="item" /></el-select></el-form-item>
-                    <el-form-item label="子域名前缀"><el-input v-model="prefix" /><div class="muted small" style="margin-top: 6px">最终地址：{{ prefix || 'codex-mcp' }}.{{ zone || 'example.com' }}</div></el-form-item>
+                    <el-form-item label="子域名前缀"><el-input v-model="prefix" /><div class="muted small" style="margin-top: 6px">最终地址：{{ prefix || 'aimcp' }}.{{ zone || 'example.com' }}</div></el-form-item>
                     <el-form-item><el-checkbox v-model="overwrite">允许替换同名 DNS 记录</el-checkbox></el-form-item>
                 </el-form>
             </template>

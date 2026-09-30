@@ -34,7 +34,7 @@ export async function ensureLogin(
     if (force) {
         printInfo("将在临时目录重新登录；新凭据验证成功前会保留旧登录。");
     } else if (existsSync(getCloudflareOriginCertPath())) {
-        printWarning("codex-mcp 保存的 Cloudflare 登录凭据无效，将安全地重新登录。");
+        printWarning("aimcp 保存的 Cloudflare 登录凭据无效，将安全地重新登录。");
     }
 
     mkdirSync(getManagedCloudflareDir(), { recursive: true });
@@ -228,11 +228,11 @@ export function selectReusableTunnel(
     if (exact) return exact;
     if (family.length > 0) {
         // A suffixed name is created only when the default name was already occupied.
-        // Matching local credentials prove the tunnel belongs to this codex-mcp home.
+        // Matching local credentials prove the tunnel belongs to this aimcp installation.
         return [...family].sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id))[0];
     }
     // Hostnames can change (for example a Mac DHCP hostname), which changes the
-    // default tunnel name. If this private codex-mcp home owns exactly one active
+    // default tunnel name. If this private aimcp installation owns exactly one active
     // Tunnel in the account, that ownership proof is stronger than the display name.
     return owned.length === 1 ? owned[0] : undefined;
 }

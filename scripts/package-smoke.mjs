@@ -13,9 +13,10 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const packageVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
+const packageMetadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const packageVersion = packageMetadata.version;
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const scratch = mkdtempSync(join(tmpdir(), "codex-mcp-package-smoke-"));
+const scratch = mkdtempSync(join(tmpdir(), "aimcp-package-smoke-"));
 const home = join(scratch, "home");
 const installRoot = join(scratch, "install");
 const project = join(scratch, "project");
@@ -73,7 +74,7 @@ const tarball = process.argv[2] ? resolve(process.argv[2]) : buildTarball();
 if (!existsSync(tarball)) throw new Error(`package tarball does not exist: ${tarball}`);
 
 run(npm, ["install", "--prefix", installRoot, tarball, "--omit=dev", "--registry=https://registry.npmjs.org"]);
-const cli = join(installRoot, "node_modules", "@meesii", "codex-mcp", "dist", "cli.js");
+const cli = join(installRoot, "node_modules", ...packageMetadata.name.split("/"), "dist", "cli.js");
 const binShim = join(installRoot, "node_modules", ".bin", process.platform === "win32" ? "aimcp.cmd" : "aimcp");
 assert.equal(existsSync(binShim), true, `npm bin shim is missing: ${binShim}`);
 assert.equal(run(process.execPath, [cli, "--version"], { cwd: project }).trim(), packageVersion);
@@ -98,7 +99,7 @@ try {
     assert.equal(stopped.controller.pid, status.controller.pid);
     const panel = await fetch(stopped.controller.panelUrl);
     assert.equal(panel.status, 200);
-    assert.match(await panel.text(), /codex-mcp 本机工作区/);
+    assert.match(await panel.text(), /aimcp 本机工作区/);
     const consoleScript = await fetch(new URL("/console/app.js", stopped.controller.panelUrl));
     const consoleStyle = await fetch(new URL("/console/app.css", stopped.controller.panelUrl));
     assert.equal(consoleScript.status, 200);

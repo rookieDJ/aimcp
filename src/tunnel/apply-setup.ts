@@ -114,7 +114,7 @@ export async function applyTunnelSetup(
                 printWarning(`新公网配置已提交，但旧 DNS 清理失败：${readableError(error)}`);
             }
         }
-        printSuccess(`codex-mcp 配置已原子提交：${getUserConfigPath()}`);
+        printSuccess(`aimcp 配置已原子提交：${getUserConfigPath()}`);
         return {
             result: { ...candidate, userConfig: committedConfig },
             verification,

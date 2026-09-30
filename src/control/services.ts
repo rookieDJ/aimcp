@@ -222,7 +222,7 @@ export async function runDoctorService(fix = false): Promise<DoctorServiceResult
         const stale = Boolean(state && !isPidAlive(state.pid));
         ensureUserConfigDirs();
         cleanStaleDaemonState();
-        fixes.push("已确保 ~/.codex-mcp 和日志目录存在");
+        fixes.push("已确保 ~/.codex-mcp 配置目录和日志目录存在");
         if (stale) fixes.push("已清理失效的 daemon 状态文件");
         if (!(await findRipgrep())) {
             try {

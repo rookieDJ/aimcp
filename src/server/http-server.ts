@@ -52,7 +52,7 @@ export interface CreateHttpServerOptions {
     skills?: SkillRegistry;
     /** External capability source manager used by reload/status tools. */
     capabilities?: CapabilityManager;
-    /** Optional static UI preferences; defaults to ~/.codex-mcp/config.json. */
+    /** Optional static UI preferences; defaults to the existing ~/.codex-mcp/config.json path. */
     uiPreferences?: UiPreferences;
     /** Optional per-client tool policy resolver; omitted means all tools. */
     allowedToolsResolver?: (clientId?: string) => ReadonlySet<string> | undefined;

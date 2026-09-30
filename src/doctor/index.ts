@@ -145,8 +145,8 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
             label: "Cloudflare 登录",
             level: managedLogin ? "ok" : "warn",
             detail: managedLogin
-                ? `codex-mcp 私有登录：${managedLoginPath}`
-                : "没有可用的 codex-mcp 私有登录；Tunnel 仍可运行，但修改或远端诊断时需要重新登录",
+                ? `aimcp 私有登录：${managedLoginPath}`
+                : "没有可用的 aimcp 私有登录；Tunnel 仍可运行，但修改或远端诊断时需要重新登录",
         });
 
         const credentialsPath = getCredentialsPath(publicAccess.tunnelId);
@@ -228,7 +228,7 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
             checks.push({
                 label: "Cloudflare 远端诊断",
                 level: "warn",
-                detail: "没有可用的 codex-mcp 私有登录；运行 setup 重新登录后可启用远端一致性检查",
+                detail: "没有可用的 aimcp 私有登录；运行 setup 重新登录后可启用远端一致性检查",
             });
         }
     }

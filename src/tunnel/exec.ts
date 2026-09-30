@@ -24,7 +24,7 @@ export function cloudflaredChildEnv(
     }
     // cloudflared derives cert.pem and <UUID>.json from the user home directory.
     // Give it a private home so unrelated ~/.cloudflared state is never selected
-    // or overwritten by codex-mcp management and sidecar processes.
+    // or overwritten by aimcp management and sidecar processes.
     env.HOME = managedHome;
     env.USERPROFILE = managedHome;
     return env;

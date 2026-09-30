@@ -47,6 +47,7 @@ test("all 15 MCP tools execute over HTTP; sessions, files, processes and capabil
     const client = new Client({ name: "contract-test", version: "1.0.0" });
     await client.connect(new StreamableHTTPClientTransport(new URL(server.getMcpUrl())));
     t.after(() => client.close());
+    assert.equal(client.getServerVersion()?.name, "aimcp");
     assert.deepEqual((await client.listTools()).tools.map(tool => tool.name).sort(), [...names].sort());
     const called = new Set();
     const call = async (name, args = {}, session = "a", expectedError = false) => {

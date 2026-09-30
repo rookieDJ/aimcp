@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-PACKAGE="${CODEX_MCP_PACKAGE:-https://github.com/meesii/codex-mcp/releases/latest/download/codex-mcp.tgz}"
+PACKAGE="${AIMCP_PACKAGE:-${CODEX_MCP_PACKAGE:-https://github.com/rookieDJ/aimcp/releases/latest/download/aimcp.tgz}}"
+UPDATE="${AIMCP_UPDATE:-${CODEX_MCP_UPDATE:-}}"
 INSTALL_ROOT="${HOME}/.codex-mcp/npm"
 BIN_DIR="${INSTALL_ROOT}/bin"
 
@@ -47,17 +48,17 @@ command -v npm >/dev/null 2>&1 || fail "没有找到 npm。重新安装 Node.js 
 NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
 [ "$NODE_MAJOR" -ge 22 ] || fail "当前 Node.js 版本是 $(node -v)，需要 22 或更高版本。"
 
-if [ "${CODEX_MCP_UPDATE:-}" = "1" ]; then
-  info "正在更新 codex-mcp…"
+if [ "$UPDATE" = "1" ]; then
+  info "正在更新 aimcp…"
 else
-  info "正在安装 codex-mcp…"
+  info "正在安装 aimcp…"
 fi
 mkdir -p "$INSTALL_ROOT"
 npm install --global --prefix "$INSTALL_ROOT" "$PACKAGE"
 
 [ -x "$BIN_DIR/aimcp" ] || fail "安装完成，但没有找到 aimcp 命令。"
 
-TOOLS_CLI="$INSTALL_ROOT/lib/node_modules/@meesii/codex-mcp/dist/managed-tools/cli.js"
+TOOLS_CLI="$INSTALL_ROOT/lib/node_modules/@rookiedj/aimcp/dist/managed-tools/cli.js"
 [ -f "$TOOLS_CLI" ] || fail "安装完成，但缺少运行组件管理程序。"
 info "正在准备必要组件…"
 node "$TOOLS_CLI" bootstrap || fail "必要组件准备失败。请检查网络后重新运行安装。"
@@ -69,7 +70,7 @@ add_path_line() {
   if [ -f "$profile" ] && grep -F '.codex-mcp/npm/bin' "$profile" >/dev/null 2>&1; then
     return
   fi
-  printf '\n# codex-mcp\n%s\n' "$line" >> "$profile"
+  printf '\n# aimcp\n%s\n' "$line" >> "$profile"
 }
 
 SHELL_NAME="$(basename "${SHELL:-sh}")"
@@ -93,7 +94,7 @@ say ""
 success "aimcp ${VERSION:-已安装}"
 success "命令目录已加入 PATH：${BIN_DIR}"
 say ""
-if [ "${CODEX_MCP_UPDATE:-}" = "1" ]; then
+if [ "$UPDATE" = "1" ]; then
   success "更新完成。配置、连接密码和 Tunnel 信息保持不变。"
   warn "如果 aimcp 服务正在运行，请重启它；现有进程不会自动加载更新后的 core tool schema。"
 else

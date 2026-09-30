@@ -18,7 +18,7 @@ export function canonicalProjectPath(input: string): string {
 }
 
 /**
- * Project display name: package.json `name` when present, otherwise the final
+ * Project display name: package.json `displayName`, then `name`, then the final
  * directory name. Display names may collide across projects; ids must not.
  */
 export function detectProjectDisplayName(root: string): string {
@@ -26,10 +26,15 @@ export function detectProjectDisplayName(root: string): string {
         const packagePath = resolve(root, "package.json");
         if (existsSync(packagePath)) {
             const raw = JSON.parse(readFileSync(packagePath, "utf8")) as {
+                displayName?: unknown;
                 name?: unknown;
             };
-            if (typeof raw.name === "string" && raw.name.trim()) {
-                return raw.name.trim().slice(0, 200);
+            const displayName =
+                typeof raw.displayName === "string" && raw.displayName.trim()
+                    ? raw.displayName
+                    : raw.name;
+            if (typeof displayName === "string" && displayName.trim()) {
+                return displayName.trim().slice(0, 200);
             }
         }
     } catch {

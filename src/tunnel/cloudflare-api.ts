@@ -83,7 +83,7 @@ export function dnsSnapshotReferencesTunnel(
     return snapshot.records.some((record) => dnsRecordTargetsTunnel(record, tunnelId));
 }
 
-/** Remove a former codex-mcp hostname only while it still exactly targets that managed Tunnel. */
+/** Remove a previously configured hostname only while it still exactly targets that managed Tunnel. */
 export async function removeCloudflareManagedDnsIfOwned(
     zoneId: string,
     hostname: string,

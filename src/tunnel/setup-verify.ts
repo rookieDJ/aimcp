@@ -25,7 +25,7 @@ export interface SetupPublicVerificationOptions {
     signal?: AbortSignal;
 }
 
-export type SetupPortState = "available" | "codex-mcp" | "occupied";
+export type SetupPortState = "available" | "aimcp" | "occupied";
 
 class SetupPortInUseError extends Error {}
 
@@ -34,7 +34,7 @@ class SetupPortInUseError extends Error {}
  *
  * A minimal HTTP server temporarily occupies the configured local service port and
  * exposes only an unpredictable probe route. Cloudflare mode also starts the same
- * managed sidecar/config that normal `codex-mcp` startup will use. The public HTTPS
+ * managed sidecar/config that normal `aimcp` startup will use. The public HTTPS
  * fetch must return the exact random probe response from this process.
  */
 export async function verifySetupPublicRoute(
@@ -104,7 +104,7 @@ export async function verifyRunningPublicRoute(
     ]);
     if (localHealth !== publicHealth) {
         throw new Error(
-            "本机端口已经有 codex-mcp 在运行，但公网地址没有指向同一个实例。请停止当前服务后重新运行 setup，或检查 Tunnel / DNS 配置。",
+            "本机端口已经有 aimcp 在运行，但公网地址没有指向同一个实例。请停止当前服务后重新运行 setup，或检查 Tunnel / DNS 配置。",
         );
     }
     return { publicMcpUrl: `https://${domain}/mcp` };
@@ -117,16 +117,16 @@ export async function assertSetupPortAvailable(
 ): Promise<void> {
     const state = await inspectSetupPort(host, port);
     if (state === "available") return;
-    if (state === "codex-mcp") {
+    if (state === "aimcp") {
         throw new Error(
-            `本机端口 ${port} 上有 codex-mcp 在运行，但缺少可用的 daemon 状态，无法安全停止。` +
+            `本机端口 ${port} 上有 aimcp 在运行，但缺少可用的 daemon 状态，无法安全停止。` +
             "请先结束这个已有进程，再重新运行 setup；尚未修改 Cloudflare。",
         );
     }
     throw new Error(`本机端口 ${port} 已被其它程序占用；尚未修改 Cloudflare`);
 }
 
-/** Read-only classification used to recognize an existing local codex-mcp instance. */
+/** Read-only classification used to recognize an existing local aimcp instance. */
 export async function inspectSetupPort(
     host: string,
     port: number,
@@ -143,7 +143,7 @@ export async function inspectSetupPort(
         if (!(error instanceof SetupPortInUseError)) throw error;
         try {
             await readHealthInstance(`http://${formatHost(listenHost)}:${port}/healthz`, true, 5_000);
-            return "codex-mcp";
+            return "aimcp";
         } catch {
             return "occupied";
         }
@@ -166,13 +166,13 @@ async function readHealthInstance(
         headers: { Accept: "application/json" },
     });
     if (response.status !== 200) {
-        throw new Error(`codex-mcp 健康检查失败：${url} 返回 HTTP ${response.status}`);
+        throw new Error(`aimcp 健康检查失败：${url} 返回 HTTP ${response.status}`);
     }
     let payload: unknown;
     try {
         payload = JSON.parse(response.body.toString("utf8"));
     } catch {
-        throw new Error(`codex-mcp 健康检查返回了无法识别的内容：${url}`);
+        throw new Error(`aimcp 健康检查返回了无法识别的内容：${url}`);
     }
     if (
         !payload ||
@@ -181,7 +181,7 @@ async function readHealthInstance(
         typeof (payload as { instance?: unknown }).instance !== "string" ||
         (payload as { instance: string }).instance.length < 16
     ) {
-        throw new Error(`端口上的服务不是支持 setup 验证的当前版 codex-mcp：${url}。请重启该服务后再检查。`);
+        throw new Error(`端口上的服务不是支持 setup 验证的当前版 aimcp：${url}。请重启该服务后再检查。`);
     }
     return (payload as { instance: string }).instance;
 }

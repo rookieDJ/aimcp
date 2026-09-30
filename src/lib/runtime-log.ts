@@ -67,7 +67,7 @@ export async function initializeRuntimeLog(
         await once(transport, "ready");
         pending.logger = pino(
             {
-                base: { service: "codex-mcp" },
+                base: { service: "aimcp" },
                 timestamp: pino.stdTimeFunctions.isoTime,
                 redact: {
                     paths: [

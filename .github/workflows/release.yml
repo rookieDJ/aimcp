@@ -84,14 +84,14 @@ jobs:
         run: |
           mkdir -p release
           npm pack --pack-destination release
-          mv release/*.tgz release/codex-mcp.tgz
-          node scripts/package-smoke.mjs release/codex-mcp.tgz
+          mv release/*.tgz release/aimcp.tgz
+          node scripts/package-smoke.mjs release/aimcp.tgz
           cp scripts/install.sh release/install.sh
           cp scripts/install.ps1 release/install.ps1
           cp scripts/uninstall.sh release/uninstall.sh
           cp scripts/uninstall.ps1 release/uninstall.ps1
           cd release
-          sha256sum codex-mcp.tgz install.sh install.ps1 uninstall.sh uninstall.ps1 > SHA256SUMS
+          sha256sum aimcp.tgz install.sh install.ps1 uninstall.sh uninstall.ps1 > SHA256SUMS
 
       - name: Upload tested release bundle
         uses: actions/upload-artifact@v4
@@ -120,7 +120,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
-            release/codex-mcp.tgz \
+            release/aimcp.tgz \
             release/install.sh \
             release/install.ps1 \
             release/uninstall.sh \
@@ -128,7 +128,7 @@ jobs:
             release/SHA256SUMS \
             --verify-tag \
             --generate-notes \
-            --title "codex-mcp $GITHUB_REF_NAME"
+            --title "aimcp $GITHUB_REF_NAME"
 
   publish-npm:
     name: 发布到 npm
@@ -178,4 +178,4 @@ jobs:
             echo "$PACKAGE_NAME@$PACKAGE_VERSION 已经在 npm 上，跳过发布"
             exit 0
           fi
-          npm publish ./release/codex-mcp.tgz --access public --provenance
+          npm publish ./release/aimcp.tgz --access public --provenance

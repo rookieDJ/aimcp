@@ -78,7 +78,7 @@ export interface TunnelSidecarStatus {
 /**
  * Manage a long-running `cloudflared tunnel run` child process.
  *
- * Logs go to `~/.codex-mcp/logs/tunnel.log` by default so the project
+ * Logs go to the existing `~/.codex-mcp/logs/tunnel.log` path by default so the project
  * terminal stays readable. `start()` only resolves after Cloudflare
  * accepts a connector (`Registered tunnel connection`).
  */

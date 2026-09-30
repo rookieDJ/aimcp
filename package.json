@@ -1,5 +1,7 @@
 {
-    "name": "@meesii/codex-mcp",
+    "name": "@rookiedj/aimcp",
+    "displayName": "aimcp",
+    "author": "rookieDJ",
     "version": "1.2.0",
     "description": "Local coding MCP server for ChatGPT, Gemini CLI, and other MCP clients with OAuth and Streamable HTTP.",
     "type": "module",
@@ -44,12 +46,12 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/meesii/codex-mcp.git"
+        "url": "git+https://github.com/rookieDJ/aimcp.git"
     },
     "bugs": {
-        "url": "https://github.com/meesii/codex-mcp/issues"
+        "url": "https://github.com/rookieDJ/aimcp/issues"
     },
-    "homepage": "https://github.com/meesii/codex-mcp#readme",
+    "homepage": "https://github.com/rookieDJ/aimcp#readme",
     "license": "MIT",
     "publishConfig": {
         "access": "public"

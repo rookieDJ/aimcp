@@ -283,7 +283,7 @@ export async function withControllerLifecycleLock<T>(run: () => Promise<T>): Pro
             release();
         }
     }
-    throw new Error("另一个 codex-mcp 正在启动或替换本机 Controller；等待 30 秒后仍未完成");
+    throw new Error("另一个 aimcp 正在启动或替换本机 Controller；等待 30 秒后仍未完成");
 }
 
 function tryAcquireControllerLock(): () => void {

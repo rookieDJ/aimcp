@@ -190,7 +190,7 @@ export function normalizeDaemonStatusPayload(value: unknown): DaemonStatusPayloa
     const input = value as Record<string, unknown>;
     if (input.controlApiVersion !== DAEMON_CONTROL_API_VERSION) {
         throw new Error(
-            `守护进程控制协议版本不兼容：期望 ${DAEMON_CONTROL_API_VERSION}，实际 ${String(input.controlApiVersion ?? "缺失")}；请更新并重启 codex-mcp`,
+            `守护进程控制协议版本不兼容：期望 ${DAEMON_CONTROL_API_VERSION}，实际 ${String(input.controlApiVersion ?? "缺失")}；请更新并重启 aimcp`,
         );
     }
     if (input.ok !== true || typeof input.version !== "string" ||
@@ -547,7 +547,7 @@ export async function withDaemonLifecycleLock<T>(run: () => Promise<T>): Promise
             release();
         }
     }
-    throw new Error("另一个 codex-mcp 正在执行启动、停止或 setup；等待 30 秒后仍未完成，请稍后再试");
+    throw new Error("另一个 aimcp 正在执行启动、停止或 setup；等待 30 秒后仍未完成，请稍后再试");
 }
 
 function tryAcquireLock(): () => void {

@@ -572,7 +572,7 @@ async function printDoctorReport(fix: boolean): Promise<void> {
     } else {
         printSuccess("安装和配置看起来都正常。");
     }
-    printInfo("启动 codex-mcp 时还会自动检查公网连接是否真的可用。");
+    printInfo("启动 aimcp 时还会自动检查公网连接是否真的可用。");
     printOutro("检查完成");
 }
 

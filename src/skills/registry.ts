@@ -263,7 +263,7 @@ function parseSkillMetadata(contents: string, fallbackName: string): ParsedSkill
         }
         const allowedToolsMatch = line.match(/^allowed-tools:\s*(.*)$/);
         if (allowedToolsMatch) {
-            // Claude can restrict the tool surface while a skill runs. codex-mcp cannot
+            // Claude can restrict the tool surface while a skill runs. aimcp cannot
             // currently reproduce that per-skill sandbox, so do not auto-expose it.
             portableModelInvocation = false;
             continue;

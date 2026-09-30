@@ -42,7 +42,7 @@ export function buildServerInstructions(projectRoot: string, hub?: DownstreamMcp
         "  <paths>all file and command paths must remain inside the bound project root</paths>",
         "</environment_context>",
         "",
-        "Codex-MCP exposes a deliberately small coding toolset:",
+        "aimcp exposes a deliberately small coding toolset:",
         ...CORE_TOOL_GUIDE,
         "",
         "Every tool call requires purpose: a short user-visible statement of its immediate intent.",
@@ -55,7 +55,7 @@ export function buildServerInstructions(projectRoot: string, hub?: DownstreamMcp
 export function buildMultiProjectInstructions(): string {
     return [
         "<environment_context>",
-        "  <mode>codex-mcp multi-project daemon</mode>",
+        "  <mode>aimcp multi-project daemon</mode>",
         "  <binding>each conversation must use project_control to list and explicitly select one project before project-level tools are called</binding>",
         `  <shell>${process.platform === "win32" ? "powershell" : "bash"}</shell>`,
         "</environment_context>",
@@ -72,7 +72,7 @@ export function buildMultiProjectInstructions(): string {
 export function createMcpServer(options: CreateMcpServerOptions): McpServer {
     const { config, scope, tryScope, hub, skills, uiPreferences, allowedTools, projectTools, capabilityScope } = options;
     const server = new McpServer(
-        { name: "codex-mcp", version: PACKAGE_VERSION },
+        { name: "aimcp", version: PACKAGE_VERSION },
         { instructions: projectTools
             ? buildMultiProjectInstructions()
             : buildServerInstructions(scope().project.root, hub, skills) },

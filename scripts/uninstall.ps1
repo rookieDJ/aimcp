@@ -45,7 +45,7 @@ if ($userPath) {
     [Environment]::SetEnvironmentVariable("Path", ($parts -join ";"), "User")
 }
 
-Success "codex-mcp 程序已删除。"
+Success "aimcp 程序已删除。"
 Write-Host ""
 Info "你的配置、连接密码和 Tunnel 信息仍保留在：$env:USERPROFILE\.codex-mcp"
-Info "以后重新安装 codex-mcp 时可以继续使用这些配置。"
+Info "以后重新安装 aimcp 时可以继续使用这些配置。"

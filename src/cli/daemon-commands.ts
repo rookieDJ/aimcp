@@ -195,7 +195,7 @@ export async function runShutdown(): Promise<void> {
     printInfo("正在关闭 MCP Runtime 和本机 Controller…");
     await controller.client.shutdown();
     await waitForProcessExit(controller.state.pid, 30_000);
-    printSuccess("codex-mcp 已完全关闭。");
+    printSuccess("aimcp 已完全关闭。");
 }
 
 /** Restart a running Runtime in the same mode through the persistent Controller. */

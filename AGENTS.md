@@ -73,7 +73,7 @@
 
 - Web Console 始终只监听本机回环地址；浏览器写操作继续要求本机 session + same-origin + CSRF。
 - 密码、OAuth token、private key、Cloudflare 凭据不得写进 DOM、URL、普通日志或测试输出；生成密码只有用户明确触发时才短暂显示。
-- Cloudflare 托管资源只能在能够证明属于 codex-mcp 时自动修改/清理；DNS 删除前必须确认仍精确指向预期 Tunnel。
+- Cloudflare 托管资源只能在能够证明属于 aimcp（包括旧版 codex-mcp 安装创建的资源）时自动修改/清理；DNS 删除前必须确认仍精确指向预期 Tunnel。
 - 切换公网入口时先验证 candidate，再提交本机配置，最后清理旧资源；失败或取消需要按当前事务边界补偿。
 - Tunnel 复用优先可靠 ownership（已知 ID、本机匹配账号凭据、无歧义远端状态），不能只依赖 hostname 或 tunnel name 猜测。
 - Cloudflare `deleted_at` 等软删除语义要当作已删除处理，不能仅凭 GET 200 判断资源存在。

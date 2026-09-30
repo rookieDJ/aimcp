@@ -173,7 +173,7 @@ async function requestOne(
             ? await withinRequestDeadline(resolveProxies(url), deadline, options.signal)
             : [];
     const requestHeaders = {
-        "User-Agent": `codex-mcp/${PACKAGE_VERSION}`,
+        "User-Agent": `aimcp/${PACKAGE_VERSION}`,
         "Accept-Encoding": "identity",
         ...(options.body !== undefined
             ? { "Content-Length": String(Buffer.byteLength(options.body)) }
@@ -532,7 +532,7 @@ async function queryDoh(
                 Host: provider.host,
                 Accept: "application/dns-json",
                 "Accept-Encoding": "identity",
-                "User-Agent": `codex-mcp/${PACKAGE_VERSION}`,
+                "User-Agent": `aimcp/${PACKAGE_VERSION}`,
             },
         });
         let total = 0;
