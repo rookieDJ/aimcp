@@ -457,7 +457,7 @@ function renderLoginPage(input: {
         .map(([name, value]) => `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}" />`)
         .join("\n");
     const loopbackWarning = isLoopbackHost(redirect.hostname)
-        ? '<p class="warning">这个连接会回到当前电脑。请确认是你刚刚在 ChatGPT 里发起的连接。</p>'
+        ? '<p class="warning">这个连接会回到当前电脑。请确认是你刚刚发起的 MCP 授权。</p>'
         : "";
     return `<!doctype html>
 <html lang="zh-CN">

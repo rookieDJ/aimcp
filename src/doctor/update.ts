@@ -51,7 +51,7 @@ export async function runSelfUpdate(options: SelfUpdateOptions = {}): Promise<vo
         await access(invocation.scriptPath);
     } catch {
         throw new Error(
-            "当前安装缺少更新组件。请重新运行一次安装脚本，之后即可使用 `codex-mcp update`。",
+            "当前安装缺少更新组件。请重新运行一次安装脚本，之后即可使用 `aimcp update`。",
         );
     }
 

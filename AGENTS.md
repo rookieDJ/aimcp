@@ -2,7 +2,7 @@
 
 ## 项目身份
 
-- 本仓库是面向 ChatGPT 的本机 coding MCP，核心由本机 Controller、MCP Runtime、项目注册/会话绑定、OAuth/公网入口和 Web Console 组成。
+- 本仓库是面向 ChatGPT 与 Gemini CLI 等 MCP 客户端的本机 coding MCP，核心由本机 Controller、MCP Runtime、项目注册/会话绑定、OAuth/公网入口和 Web Console 组成。
 - Web Console 是本机控制面，不是独立 SaaS：主要入口为 `src/ui/console/**`，技术栈固定为 Vue 3 + TypeScript + Element Plus + Vite。
 - Controller 与 CLI 应尽量复用 `src/control/services.ts` 等共享 service；除纯 UI 状态外，不在 Web 或 CLI 复制一套业务规则。
 - 优先最小、可运行、可验证的实现；不要为了统一风格、提前抽象或顺手清技术债扩大 diff。
@@ -52,7 +52,7 @@
 ## UI / CSS
 
 - Web Console 定位是简洁的本机工具控制台：优先状态、下一步操作和可恢复错误，不为了装饰增加大卡片、冗余说明和动效。
-- 视觉与布局基线参考 `常见后台工作区` 的 PC Admin：稳定的侧栏 + 64px 顶栏 + 灰色工作区 + 白色内容面 + 轻边框/轻阴影 + 24/16/12 间距节奏；只借鉴后台工作区感觉，不复制商城绿色品牌色和商城业务组件。
+- 视觉与布局基线参考常见 PC Admin 工作区：稳定的侧栏 + 64px 顶栏 + 灰色工作区 + 白色内容面 + 轻边框/轻阴影 + 24/16/12 间距节奏；只借鉴后台工作区感觉，不复制特定项目的品牌色和业务组件。
 - 桌面侧栏保持可折叠的后台导航语义（展开约 228px、折叠约 64px）；内容区使用工作区宽度，不退回居中限宽的网站式页面；顶栏已有页面标题时正文不重复大标题。
 - 桌面端与窄屏都必须可用；重要布局至少检查约 1440×900 和手机窄宽视口，不只验证 DOM 能挂载。
 - 样式优先复用 `src/ui/console/styles.css` 中现有 design token 和 Element Plus token；不要在组件中散落新的品牌色/阴影/圆角体系。

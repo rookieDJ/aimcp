@@ -68,10 +68,10 @@ async function shutdownIsolatedController(home) {
 test("1.0 exposes the explicit start command and rejects removed commands", () => {
     const help = run(["help"]);
     assert.equal(help.code, 0);
-    assert.match(help.output, /codex-mcp start/);
+    assert.match(help.output, /aimcp start/);
     const bare = run([]);
     assert.equal(bare.code, 0);
-    assert.match(bare.output, /codex-mcp start/);
+    assert.match(bare.output, /aimcp start/);
     for (const removed of ["tunnel", "exit", "serve"]) {
         const result = run([removed]);
         assert.notEqual(result.code, 0);
@@ -804,7 +804,7 @@ test("interactive commands fail clearly without a terminal; internal daemon entr
     assert.notEqual(run(["project", "list", "unexpected"]).code, 0);
     const doctor = run(["doctor"]);
     assert.ok([0, 1].includes(doctor.code), doctor.output);
-    assert.match(doctor.output, /codex-mcp 检查/);
+    assert.match(doctor.output, /aimcp 检查/);
     assert.doesNotMatch(doctor.output, /需要交互式终端|必须在交互式终端/);
     const stopped = run(["stop"]);
     assert.equal(stopped.code, 0, stopped.output);

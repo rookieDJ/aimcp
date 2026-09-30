@@ -74,7 +74,7 @@ if (!existsSync(tarball)) throw new Error(`package tarball does not exist: ${tar
 
 run(npm, ["install", "--prefix", installRoot, tarball, "--omit=dev", "--registry=https://registry.npmjs.org"]);
 const cli = join(installRoot, "node_modules", "@meesii", "codex-mcp", "dist", "cli.js");
-const binShim = join(installRoot, "node_modules", ".bin", process.platform === "win32" ? "codex-mcp.cmd" : "codex-mcp");
+const binShim = join(installRoot, "node_modules", ".bin", process.platform === "win32" ? "aimcp.cmd" : "aimcp");
 assert.equal(existsSync(binShim), true, `npm bin shim is missing: ${binShim}`);
 assert.equal(run(process.execPath, [cli, "--version"], { cwd: project }).trim(), packageVersion);
 

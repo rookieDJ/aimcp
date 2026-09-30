@@ -57,7 +57,7 @@ async function generate(): Promise<void> {
 
 <template>
     <div>
-        <div class="page-heading"><h1>连接 ChatGPT</h1><p>完成公网地址和连接密码后，运行一次连接检查即可。</p></div>
+        <div class="page-heading"><h1>远程 MCP 连接</h1><p>完成公网地址和连接密码后，运行一次连接检查即可。</p></div>
 
         <div class="stack">
             <el-card shadow="never">

@@ -113,7 +113,7 @@ export async function restartRuntime(): Promise<ControlStatus> {
         const existing = await contactRunningDaemon();
         if (!existing) {
             cleanStaleDaemonState();
-            throw new Error("MCP Runtime 没有在运行，无法重启；请使用 `codex-mcp start`");
+            throw new Error("MCP Runtime 没有在运行，无法重启；请使用 `aimcp start`");
         }
         const intent = existing.state.runtimeIntent;
         await assertIntentReady(intent);
@@ -382,8 +382,8 @@ async function ensureRuntime(intent: RuntimeIntent, intentSpecified: boolean) {
 async function assertIntentReady(intent: Pick<RuntimeIntent, "local" | "noTunnel">): Promise<void> {
     if (intent.local) return;
     const config = loadUserConfig();
-    if (!config.publicAccess) throw new Error("还没有配置公网连接；请打开 Web Console 的“连接”页面，或运行 `codex-mcp setup`");
-    if (!(await hasAdminPassword())) throw new Error("还没有设置连接密码；请在 Web Console 的“连接”页面设置，或运行 `codex-mcp auth`");
+    if (!config.publicAccess) throw new Error("还没有配置公网连接；请打开 Web Console 的“连接”页面，或运行 `aimcp setup`");
+    if (!(await hasAdminPassword())) throw new Error("还没有设置连接密码；请在 Web Console 的“连接”页面设置，或运行 `aimcp auth`");
     if (!intent.noTunnel && config.publicAccess.kind === "cloudflare") {
         await loadCommittedTunnelSetup(config, config.host ?? "127.0.0.1", config.port ?? 3920);
     }

@@ -22,7 +22,7 @@ export async function resolveCloudflaredBin(
         return suggested;
     }
 
-    throw new Error("没有找到 cloudflared。请先安装 cloudflared，再运行 `codex-mcp setup`");
+    throw new Error("没有找到 cloudflared。请先安装 cloudflared，再运行 `aimcp setup`");
 }
 
 export async function suggestCloudflaredBin(

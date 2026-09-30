@@ -209,7 +209,7 @@ export function parseCliArgs(argv: string[]): CliFlags {
             throw new Error(
                 actionToken
                     ? `不认识这个 bindings 子命令：${actionToken}。可用：clean`
-                    : "`codex-mcp bindings` 后面需要子命令：clean",
+                    : "`aimcp bindings` 后面需要子命令：clean",
             );
         }
         bindingsAction = "clean";
@@ -223,7 +223,7 @@ export function parseCliArgs(argv: string[]): CliFlags {
 
     if (requestedHelp) {
         if (argv.length !== 1) {
-            throw new Error("`--help` 不能和其他命令或选项一起使用；运行 `codex-mcp help`");
+            throw new Error("`--help` 不能和其他命令或选项一起使用；运行 `aimcp help`");
         }
         return defaults("help");
     }
@@ -301,7 +301,7 @@ function resolveCommand(token: string | undefined): CliCommand {
     ) {
         return token;
     }
-    throw new Error(`不认识这个命令：${token}。运行 codex-mcp help 查看帮助`);
+    throw new Error(`不认识这个命令：${token}。运行 aimcp help 查看帮助`);
 }
 
 function isProjectAction(value: string): value is ProjectAction {
@@ -309,7 +309,7 @@ function isProjectAction(value: string): value is ProjectAction {
 }
 
 function displayCommand(command: CliCommand, action?: ProjectAction | BindingsAction): string {
-    return action ? `codex-mcp ${command} ${action}` : `codex-mcp ${command}`;
+    return action ? `aimcp ${command} ${action}` : `aimcp ${command}`;
 }
 
 function defaults(command: CliCommand): CliFlags {

@@ -55,7 +55,7 @@ fi
 mkdir -p "$INSTALL_ROOT"
 npm install --global --prefix "$INSTALL_ROOT" "$PACKAGE"
 
-[ -x "$BIN_DIR/codex-mcp" ] || fail "安装完成，但没有找到 codex-mcp 命令。"
+[ -x "$BIN_DIR/aimcp" ] || fail "安装完成，但没有找到 aimcp 命令。"
 
 TOOLS_CLI="$INSTALL_ROOT/lib/node_modules/@meesii/codex-mcp/dist/managed-tools/cli.js"
 [ -f "$TOOLS_CLI" ] || fail "安装完成，但缺少运行组件管理程序。"
@@ -88,16 +88,16 @@ esac
 add_path_line "$PROFILE"
 export PATH="$BIN_DIR:$PATH"
 
-VERSION="$(codex-mcp --version 2>/dev/null || true)"
+VERSION="$(aimcp --version 2>/dev/null || true)"
 say ""
-success "codex-mcp ${VERSION:-已安装}"
+success "aimcp ${VERSION:-已安装}"
 success "命令目录已加入 PATH：${BIN_DIR}"
 say ""
 if [ "${CODEX_MCP_UPDATE:-}" = "1" ]; then
   success "更新完成。配置、连接密码和 Tunnel 信息保持不变。"
-  warn "如果 codex-mcp 服务正在运行，请重启它；现有进程不会自动加载更新后的 core tool schema。"
+  warn "如果 aimcp 服务正在运行，请重启它；现有进程不会自动加载更新后的 core tool schema。"
 else
-  info "第一次使用推荐运行：codex-mcp open"
-  info "也可以进入项目目录直接运行：codex-mcp start"
-  warn "如果当前终端还找不到 codex-mcp，请重新打开一个终端窗口。"
+  info "第一次使用推荐运行：aimcp open"
+  info "也可以进入项目目录直接运行：aimcp start"
+  warn "如果当前终端还找不到 aimcp，请重新打开一个终端窗口。"
 fi

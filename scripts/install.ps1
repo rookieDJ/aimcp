@@ -65,9 +65,9 @@ if ($LASTEXITCODE -ne 0) {
     Fail "npm 安装没有完成。请检查上面的错误信息。"
 }
 
-$cmdPath = Join-Path $installRoot "codex-mcp.cmd"
+$cmdPath = Join-Path $installRoot "aimcp.cmd"
 if (-not (Test-Path -LiteralPath $cmdPath)) {
-    Fail "安装完成，但没有找到 codex-mcp 命令：$cmdPath"
+    Fail "安装完成，但没有找到 aimcp 命令：$cmdPath"
 }
 
 $toolsCli = Join-Path $installRoot "node_modules\@meesii\codex-mcp\dist\managed-tools\cli.js"
@@ -99,14 +99,14 @@ $env:Path = "$installRoot;$env:Path"
 
 $version = & $cmdPath --version 2>$null
 Write-Host ""
-Success "codex-mcp $version"
+Success "aimcp $version"
 Success "命令目录已加入 PATH：$installRoot"
 Write-Host ""
 if ($env:CODEX_MCP_UPDATE -eq "1") {
     Success "更新完成。配置、连接密码和 Tunnel 信息保持不变。"
-    Warn "如果 codex-mcp 服务正在运行，请重启它；现有进程不会自动加载更新后的 core tool schema。"
+    Warn "如果 aimcp 服务正在运行，请重启它；现有进程不会自动加载更新后的 core tool schema。"
 } else {
-    Info "第一次使用推荐运行：codex-mcp open"
-    Info "也可以进入项目目录直接运行：codex-mcp start"
-    Warn "如果其它终端窗口还找不到 codex-mcp，请重新打开终端。"
+    Info "第一次使用推荐运行：aimcp open"
+    Info "也可以进入项目目录直接运行：aimcp start"
+    Warn "如果其它终端窗口还找不到 aimcp，请重新打开终端。"
 }

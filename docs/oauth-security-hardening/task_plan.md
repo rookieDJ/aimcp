@@ -42,7 +42,7 @@
 
 ### 阶段 1：OAuth 核心与公网 HTTP 边界
 - 状态: **complete**
-- [x] 管理员密码 Argon2id 持久化 / `codex-mcp auth`
+- [x] 管理员密码 Argon2id 持久化 / `aimcp auth`
 - [x] OAuth discovery / authorize / token / revoke / DCR
 - [x] CIMD 安全拉取与 redirect validation；`client_id` URL 精确匹配、`client_name`、HTTPS/loopback redirect；支持 `none` 与标准 `private_key_jwt`（RS256/JWKS/assertion replay protection）
 - [x] access/refresh/code 生命周期、MCP `resource` 在 authorization/token/refresh 三阶段必填并绑定、refresh replay family revoke

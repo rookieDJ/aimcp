@@ -107,13 +107,13 @@ export async function runStatus(flags: CliFlags): Promise<void> {
         return;
     }
 
-    printIntro("codex-mcp status");
+    printIntro("aimcp status");
     if (!status) {
         printWarning("MCP Runtime 没有在运行。");
         if (controllerStatus) {
             printInfo(`本机 Controller 仍在运行：pid ${controllerStatus.pid} · ${controllerStatus.panelUrl}`);
         } else {
-            printInfo("本机 Controller 尚未运行；运行 codex-mcp open 打开控制台，或运行 codex-mcp start 启动当前项目。");
+            printInfo("本机 Controller 尚未运行；运行 aimcp open 打开控制台，或运行 aimcp start 启动当前项目。");
         }
         printInfo(`下次启动模式：${describeRuntimeIntent(preferredIntent)}`);
         if (control.projects.length > 0) {
@@ -138,22 +138,22 @@ export async function runStatus(flags: CliFlags): Promise<void> {
     ]);
 
     if (versionMismatch) {
-        printWarning("CLI、Controller 或 Runtime 版本不一致。先运行 codex-mcp update，再运行 codex-mcp restart。" );
+        printWarning("CLI、Controller 或 Runtime 版本不一致。先运行 aimcp update，再运行 aimcp restart。" );
     }
 
     const active = status.projects.filter((item) => item.active);
     if (status.projects.length === 0) {
-        printInfo("还没有注册项目。进入项目目录运行 codex-mcp start 注册第一个项目。");
+        printInfo("还没有注册项目。进入项目目录运行 aimcp start 注册第一个项目。");
     } else {
         printInfo("已注册项目：");
         for (const item of status.projects) {
             printInfo(`- ${item.name}${item.active ? "" : "（已停用）"} ${item.path} · ${item.boundSessions} 个会话绑定`);
         }
-        if (active.length === 0) printWarning("没有活动项目。运行 codex-mcp project add [目录] 重新启用。");
+        if (active.length === 0) printWarning("没有活动项目。运行 aimcp project add [目录] 重新启用。");
     }
 
     if (status.publicMcpUrl && !(await checkPublicHealthz(status.localUrl, status.publicMcpUrl))) {
-        printWarning(`公网地址暂时无法验证（${status.publicMcpUrl}）。请运行 codex-mcp doctor 检查公网连接。`);
+        printWarning(`公网地址暂时无法验证（${status.publicMcpUrl}）。请运行 aimcp doctor 检查公网连接。`);
     }
     printOutro("状态检查完成");
 }
@@ -226,7 +226,7 @@ function printRegistrationBanner(
     project: { id: string; name: string; path: string },
     controllerPort: number,
 ): void {
-    printIntro("codex-mcp");
+    printIntro("aimcp");
     printSummary("已就绪", [
         { label: "MCP Runtime", value: `pid ${status.pid} · 已运行 ${formatUptime(status.uptimeMs)}` },
         { label: "运行方式", value: status.mode === "local" ? "仅本机" : "公网" },
@@ -236,8 +236,8 @@ function printRegistrationBanner(
         { label: "当前项目", value: project.name },
         { label: "已注册项目", value: `${status.projects.length} 个` },
     ]);
-    printInfo(`在 ChatGPT 里说“切换到 ${project.name} 项目”即可开始使用。`);
-    printOutro("管理和排查：codex-mcp open · 停止服务：codex-mcp stop");
+    printInfo(`在 MCP 客户端里说“切换到 ${project.name} 项目”即可开始使用。`);
+    printOutro("管理和排查：aimcp open · 停止服务：aimcp stop");
 }
 
 function formatUptime(uptimeMs: number): string {

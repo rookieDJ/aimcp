@@ -43,7 +43,7 @@ Coding tools
 已实现：
 
 - 内置单用户 Authorization Server
-- `codex-mcp auth`
+- `aimcp auth`
 - Argon2id password hashing
 - Authorization Code + PKCE S256 only
 - RFC 9207 `iss`

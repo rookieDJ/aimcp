@@ -64,41 +64,41 @@ import { runDoctorService, selfUpdate } from "./control/services.js";
 
 /** Print CLI usage. */
 function printUsage(): void {
-    printIntro("codex-mcp");
+    printIntro("aimcp");
     printNote(
         "常用命令",
         [
-            "codex-mcp start                   注册当前项目并确保后台服务运行",
-            "codex-mcp open                    打开本机 Web Console（不启动 Runtime）",
-            "codex-mcp status                  查看控制面、Runtime、Tunnel 和项目状态",
-            "codex-mcp restart                 重启 MCP Runtime 并保留项目注册状态",
-            "codex-mcp stop                    停止 MCP Runtime；Web Console 保持在线",
-            "codex-mcp shutdown                完全关闭 Runtime 和 Web Console",
-            "codex-mcp project list            查看已注册项目",
-            "codex-mcp project add [目录]      注册项目（默认当前目录）",
-            "codex-mcp project remove [项目]   停用项目（默认当前目录）",
-            "codex-mcp project info [项目]     查看项目详情",
-            "codex-mcp bindings clean [项目]   清理项目的会话绑定",
-            "codex-mcp logs [--lines N]        查看最近运行日志",
-            "codex-mcp logs -f                 持续跟随运行日志",
-            "codex-mcp setup                   设置 / 管理公网连接",
-            "codex-mcp doctor [--fix]          检查配置；--fix 只做安全本机修复",
-            "codex-mcp auth                    修改连接密码",
-            "codex-mcp update                  更新到最新版本",
+            "aimcp start                   注册当前项目并确保后台服务运行",
+            "aimcp open                    打开本机 Web Console（不启动 Runtime）",
+            "aimcp status                  查看控制面、Runtime、Tunnel 和项目状态",
+            "aimcp restart                 重启 MCP Runtime 并保留项目注册状态",
+            "aimcp stop                    停止 MCP Runtime；Web Console 保持在线",
+            "aimcp shutdown                完全关闭 Runtime 和 Web Console",
+            "aimcp project list            查看已注册项目",
+            "aimcp project add [目录]      注册项目（默认当前目录）",
+            "aimcp project remove [项目]   停用项目（默认当前目录）",
+            "aimcp project info [项目]     查看项目详情",
+            "aimcp bindings clean [项目]   清理项目的会话绑定",
+            "aimcp logs [--lines N]        查看最近运行日志",
+            "aimcp logs -f                 持续跟随运行日志",
+            "aimcp setup                   设置 / 管理公网连接",
+            "aimcp doctor [--fix]          检查配置；--fix 只做安全本机修复",
+            "aimcp auth                    修改连接密码",
+            "aimcp update                  更新到最新版本",
         ].join("\n"),
     );
     printNote(
         "其他",
         [
-            "codex-mcp status --json           输出机器可读状态",
-            "codex-mcp start --local           注册当前项目并切换为本机模式",
-            "codex-mcp start --public          注册当前项目并切换为公网模式",
-            "codex-mcp start --root <目录>     指定 start 的项目目录",
-            "codex-mcp --version               查看版本",
+            "aimcp status --json           输出机器可读状态",
+            "aimcp start --local           注册当前项目并切换为本机模式",
+            "aimcp start --public          注册当前项目并切换为公网模式",
+            "aimcp start --root <目录>     指定 start 的项目目录",
+            "aimcp --version               查看版本",
         ].join("\n"),
     );
-    printInfo("多数情况下：进入项目目录运行 codex-mcp start；想用图形界面则运行 codex-mcp open。");
-    printOutro("未配置公网连接时，start 默认使用本机模式；需要连接 ChatGPT 再运行 setup 或在 Web Console 配置");
+    printInfo("多数情况下：进入项目目录运行 aimcp start；想用图形界面则运行 aimcp open。");
+    printOutro("未配置公网连接时，start 默认使用本机模式；需要远程 MCP 客户端连接时，再运行 setup 或在 Web Console 配置");
 }
 
 /**
@@ -277,7 +277,7 @@ async function startServices(options: StartServicesOptions): Promise<StartedServ
     });
 
     if (!flags.local && config.allowedHosts.length === 0) {
-        throw new Error("还没有设置公网地址，请先运行 `codex-mcp setup`；只在本机使用请运行 `codex-mcp start --local`");
+        throw new Error("还没有设置公网地址，请先运行 `aimcp setup`；只在本机使用请运行 `aimcp start --local`");
     }
 
     let logDirectory: string | undefined;
@@ -393,7 +393,7 @@ async function startServices(options: StartServicesOptions): Promise<StartedServ
  */
 async function runDaemonProcess(flags: CliFlags): Promise<void> {
     if (typeof process.send !== "function" || !process.connected) {
-        throw new Error("daemon 是内部入口；请运行 codex-mcp start");
+        throw new Error("daemon 是内部入口；请运行 aimcp start");
     }
     const startup = new AbortController();
     const cancel = () => startup.abort(new Error("已取消守护进程启动"));
@@ -420,7 +420,7 @@ async function runDaemonProcess(flags: CliFlags): Promise<void> {
 async function runDaemonServices(flags: CliFlags, signal: AbortSignal, ready: () => void): Promise<void> {
     const userConfig = loadUserConfig();
     if (!flags.local && !userConfig.publicAccess) {
-        throw new Error("daemon 只读取已提交配置；请先在前台运行 `codex-mcp setup`");
+        throw new Error("daemon 只读取已提交配置；请先在前台运行 `aimcp setup`");
     }
 
     if (!flags.local) {
@@ -550,7 +550,7 @@ async function runLogs(flags: CliFlags): Promise<void> {
 
 /** Print installation/configuration report; --fix only performs whitelisted local repairs. */
 async function printDoctorReport(fix: boolean): Promise<void> {
-    printIntro("codex-mcp 检查");
+    printIntro("aimcp 检查");
 
     const result = await runDoctorService(fix);
     for (const fixMessage of result.fixes) printSuccess(fixMessage);
@@ -565,7 +565,7 @@ async function printDoctorReport(fix: boolean): Promise<void> {
     if (report.errors > 0) {
         process.exitCode = 1;
         printError(
-            `发现 ${report.errors} 个需要处理的问题。按上面的提示修复后，再运行一次 codex-mcp doctor。`,
+            `发现 ${report.errors} 个需要处理的问题。按上面的提示修复后，再运行一次 aimcp doctor。`,
         );
     } else if (report.warnings > 0) {
         printWarning(`可以正常使用。有 ${report.warnings} 个需要留意的提示。`);

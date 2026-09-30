@@ -154,7 +154,7 @@ export async function applyTunnelSetup(
         if (recoveryErrors.length > 0) {
             throw new Error(
                 `公网配置失败（阶段：${phase}）：${readableError(error)}；${recoveryErrors.join("；")}。` +
-                "Cloudflare 可能处于部分变更状态，请先运行 `codex-mcp doctor`，不要重复覆盖 DNS。",
+                "Cloudflare 可能处于部分变更状态，请先运行 `aimcp doctor`，不要重复覆盖 DNS。",
             );
         }
         throw new Error(`公网配置失败（阶段：${phase}）：${readableError(error)}`, {

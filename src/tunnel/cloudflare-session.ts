@@ -134,7 +134,7 @@ export async function ensureTunnelCreated(
                 throw new Error(
                     `Tunnel 创建命令失败后发现同名远端资源，但无法证明它属于本次请求；` +
                     `为避免删除并发创建的 Tunnel，未自动清理：${readableError(credentialError)}。` +
-                    "请先运行 `codex-mcp doctor` 并在 Cloudflare 控制台核对",
+                    "请先运行 `aimcp doctor` 并在 Cloudflare 控制台核对",
                 );
             }
             const cleanupErrors: string[] = [];
@@ -149,7 +149,7 @@ export async function ensureTunnelCreated(
         throw new Error(
             `Tunnel 创建请求后无法确认远端状态（名称：${name}）：` +
             `${reconciliationError ? readableError(reconciliationError) : "远端列表暂未返回新 Tunnel"}。` +
-            "Cloudflare 可能已创建资源，请先运行 `codex-mcp doctor` 后再重试",
+            "Cloudflare 可能已创建资源，请先运行 `aimcp doctor` 后再重试",
         );
     }
     throw new Error(`创建 Tunnel 失败：${(result.stderr || result.stdout).trim()}`);

@@ -109,7 +109,7 @@
 ## ADR-018：管理员密码 reset 是 OAuth credential epoch 轮换
 
 - 状态：accepted
-- 决策：authorization code、access token、refresh token 都绑定由当前 Argon2id PHC hash 派生的不可逆 credential generation。`codex-mcp auth` 每次重设密码都会产生新 salt/hash，因此 generation 改变；旧 grant 立即失效，不依赖 server restart。
+- 决策：authorization code、access token、refresh token 都绑定由当前 Argon2id PHC hash 派生的不可逆 credential generation。`aimcp auth` 每次重设密码都会产生新 salt/hash，因此 generation 改变；旧 grant 立即失效，不依赖 server restart。
 - 原因：管理员重置密码通常意味着需要切断旧授权。仅改变登录密码而保留最长 30 天 refresh grant 会违背用户的安全预期。
 
 ## ADR-019：密码批准同时做频率与并发治理

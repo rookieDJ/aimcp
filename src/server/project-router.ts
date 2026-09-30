@@ -53,13 +53,13 @@ export function currentBindingOwnerKey(fallbackOwnerId: string): string {
     return currentToolOwnerId(fallbackOwnerId);
 }
 
-/** Guidance text shown to ChatGPT when a project-level tool is called unbound. */
+/** Guidance text shown when a project-level tool is called without a project binding. */
 export function unboundProjectMessage(activeProjects: RegisteredProject[]): string {
     if (activeProjects.length === 0) {
         return [
-            "这个会话还没有绑定项目，而且当前没有已注册的项目。请让用户先在项目目录里运行 codex-mcp start 注册项目。",
+            "这个会话还没有绑定项目，而且当前没有已注册的项目。请让用户先在项目目录里运行 aimcp start 注册项目。",
             "注册后调用 project_control(action=select, project_id=...)。",
-            "如果 project_control 不在 ChatGPT 已批准的 action snapshot 中，请 Refresh 或重新发布 MCP app actions。",
+            "如果当前客户端没有显示 project_control，请刷新该 MCP 连接的工具列表或重新连接。",
         ].join("\n");
     }
     const list = activeProjects
@@ -70,13 +70,13 @@ export function unboundProjectMessage(activeProjects: RegisteredProject[]): stri
         "请先向用户确认要用哪个项目，不要自动猜测：",
         list,
         "调用 project_control(action=select, project_id=\"<确认的项目 id>\")。",
-        "如果 project_control 不可见，请 Refresh 或重新发布 MCP app actions；已删除的旧项目工具不再提供兼容入口。",
+        "如果 project_control 不可见，请刷新该 MCP 连接的工具列表或重新连接；已删除的旧项目工具不再提供兼容入口。",
     ].join("\n");
 }
 
 /**
  * Tool-catch helper: renders an UnboundProjectError as a structured error
- * result (so ChatGPT can parse the project list), and any other error as the
+ * result (so MCP clients can parse the project list), and any other error as the
  * ordinary plain error result.
  */
 export function projectErrorResult(error: unknown): CallToolResult {
@@ -131,7 +131,7 @@ export class BindingProjectScopeProvider {
             const detail = error instanceof Error ? error.message : String(error);
             throw new UnboundProjectError(
                 [
-                    `已绑定的项目当前不可用（${detail}）。请让用户重新运行 codex-mcp start 注册项目，或明确选择其他项目。`,
+                    `已绑定的项目当前不可用（${detail}）。请让用户重新运行 aimcp start 注册项目，或明确选择其他项目。`,
                     unboundProjectMessage(activeProjects),
                 ].join("\n"),
                 activeProjects,

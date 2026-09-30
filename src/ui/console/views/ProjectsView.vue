@@ -28,7 +28,7 @@ watch(() => props.projects, (items) => {
     <div>
         <div class="page-heading">
             <div class="section-heading" style="margin-bottom: 0">
-                <div><h1>项目</h1><p>管理 ChatGPT 可以访问的项目，以及各项目的会话绑定。</p></div>
+                <div><h1>项目</h1><p>管理 MCP 客户端可以访问的项目，以及各项目的会话绑定。</p></div>
                 <el-button type="primary" :icon="FolderAdd" @click="emit('add')">添加项目</el-button>
             </div>
         </div>
@@ -46,7 +46,7 @@ watch(() => props.projects, (items) => {
                 </el-table-column>
             </el-table>
         </el-card>
-        <p v-if="conversations.length" class="muted small" style="margin-top: 12px">会话编号只用于区分项目选择记录，不代表 ChatGPT 对话正在运行。</p>
+        <p v-if="conversations.length" class="muted small" style="margin-top: 12px">会话编号只用于区分项目选择记录，不代表客户端会话仍在运行。</p>
 
         <el-drawer v-model="drawerOpen" :title="drawerProject?.name ?? '项目详情'" size="min(520px, 92vw)">
             <template v-if="drawerProject">
@@ -56,7 +56,7 @@ watch(() => props.projects, (items) => {
                     <el-descriptions-item label="项目 ID"><span class="mono small">{{ drawerProject.id }}</span></el-descriptions-item>
                 </el-descriptions>
                 <div class="section-heading" style="margin-top: 24px">
-                    <div><h2>会话绑定</h2><p>清除后，该 ChatGPT 会话下次使用项目工具时需要重新选择项目。</p></div>
+                    <div><h2>会话绑定</h2><p>清除后，该 MCP 会话下次使用项目工具时需要重新选择项目。</p></div>
                     <el-button v-if="activeConversations.length > 1" text type="danger" :disabled="busy" @click="emit('cleanup', drawerProject, activeConversations.map((item) => item.id))">清理全部</el-button>
                 </div>
                 <el-empty v-if="!activeConversations.length" :image-size="60" description="还没有会话选择过这个项目" />

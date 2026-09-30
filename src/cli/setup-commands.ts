@@ -42,7 +42,7 @@ export async function runFirstTimeSetup(): Promise<void> {
     }
 
     printIntro("设置 codex-mcp");
-    printInfo("先完成并验证公网连接，再生成 ChatGPT 连接密码；外部能力属于可选增强项。");
+    printInfo("先完成并验证公网连接，再生成 MCP 连接密码；外部能力属于可选增强项。");
 
     const { result, verification } = await configurePublicAccess({ forceWizard: false });
     const generatedPassword = await ensureGeneratedAdminPassword({ display: false });
@@ -60,7 +60,7 @@ async function runSetupManager(
 ): Promise<void> {
     const access = current.publicAccess;
     if (!access) throw new Error("还没有设置公网连接");
-    printIntro("codex-mcp setup");
+    printIntro("aimcp setup");
     printSummary("当前配置", [
         { label: "公网地址", value: `https://${access.domain}/mcp` },
         {
@@ -89,7 +89,7 @@ async function runSetupManager(
             {
                 value: "password",
                 label: passwordConfigured ? "修改连接密码" : "生成连接密码",
-                hint: passwordConfigured ? undefined : "补齐 ChatGPT 连接所需的密码",
+                hint: passwordConfigured ? undefined : "补齐远程 MCP 连接所需的密码",
             },
             { value: "capabilities", label: "管理外部能力", hint: "Codex / Claude Code / Agent Skills" },
             { value: "exit", label: "退出，不做修改" },
@@ -163,7 +163,7 @@ function printCompletedSetup(
     if (generatedPassword) {
         printWarning("请保存上面的连接密码；电脑只保存密码哈希，忘记后需要重新设置。");
     }
-    printInfo("下一步：可运行 codex-mcp open 在 Web Console 添加项目并启动，也可以进入项目目录运行 codex-mcp start。");
+    printInfo("下一步：可运行 aimcp open 在 Web Console 添加项目并启动，也可以进入项目目录运行 aimcp start。");
     printOutro("设置完成");
 }
 
@@ -191,7 +191,7 @@ async function ensureGeneratedAdminPassword(
     if (await hasAdminPassword()) {
         if (options.display !== false) {
             printSuccess("连接密码已经存在，保持不变。");
-            printInfo("需要修改时运行：codex-mcp auth");
+            printInfo("需要修改时运行：aimcp auth");
         }
         return undefined;
     }
@@ -200,9 +200,9 @@ async function ensureGeneratedAdminPassword(
     await saveAndVerifyAdminPassword(password);
     if (options.display !== false) {
         printSuccess("连接密码已自动生成。");
-        printWarning("请保存下面的密码，连接 ChatGPT 时需要输入：");
+        printWarning("请保存下面的密码，远程 MCP 客户端授权时需要输入：");
         printNote("连接密码", password);
-        printInfo("电脑不会保存密码明文；忘记后可运行 `codex-mcp auth` 设置新密码。");
+        printInfo("电脑不会保存密码明文；忘记后可运行 `aimcp auth` 设置新密码。");
     }
     return password;
 }
@@ -211,14 +211,14 @@ async function saveAndVerifyAdminPassword(password: string): Promise<void> {
     try {
         await setConnectionPassword(password);
     } catch (error) {
-        throw new Error(`连接密码保存后校验失败，请重新运行 \`codex-mcp setup\`：${readableError(error)}`);
+        throw new Error(`连接密码保存后校验失败，请重新运行 \`aimcp setup\`：${readableError(error)}`);
     }
 }
 
 export async function ensureAdminPasswordConfigured(): Promise<void> {
     if (await hasAdminPassword()) return;
     if (!canPromptInteractively()) {
-        throw new Error("还没有连接密码，请先运行 `codex-mcp setup`");
+        throw new Error("还没有连接密码，请先运行 `aimcp setup`");
     }
     printWarning("第一次使用需要生成连接密码。");
     await ensureGeneratedAdminPassword();

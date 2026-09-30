@@ -368,7 +368,7 @@ export function createHttpServer(
         listen: async () => {
             if (config.oauthRequired && !(await hasAdminPassword())) {
                 throw new Error(
-                    "还没有设置连接密码，请先运行 `codex-mcp setup`。",
+                    "还没有设置连接密码，请先运行 `aimcp setup`。",
                 );
             }
             const listening = await new Promise<NodeHttpServer>((resolve, reject) => {

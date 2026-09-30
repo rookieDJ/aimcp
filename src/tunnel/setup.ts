@@ -90,7 +90,7 @@ export async function ensureTunnelSetup(
         return await loadCommittedTunnelSetup(userConfig, host, port);
     }
     if (!canPromptInteractively()) {
-        throw new Error("还没有设置公网地址，请先在终端运行 `codex-mcp setup`");
+        throw new Error("还没有设置公网地址，请先在终端运行 `aimcp setup`");
     }
     ensureUserConfigDirs();
     const starter = ensureStarterUserConfig(host, port);
@@ -252,7 +252,7 @@ export async function loadCommittedTunnelSetup(
 ): Promise<TunnelSetupResult> {
     const access = userConfig.publicAccess;
     if (!access) {
-        throw new Error("还没有设置公网地址，请先运行 `codex-mcp setup`");
+        throw new Error("还没有设置公网地址，请先运行 `aimcp setup`");
     }
     if (access.kind === "external") {
         return {
@@ -265,11 +265,11 @@ export async function loadCommittedTunnelSetup(
 
     const bin = await suggestCloudflaredBin(access.cloudflaredBin);
     if (!bin) {
-        throw new Error("已配置 Cloudflare Tunnel，但找不到 cloudflared；请运行 `codex-mcp doctor`");
+        throw new Error("已配置 Cloudflare Tunnel，但找不到 cloudflared；请运行 `aimcp doctor`");
     }
     const credentialsFile = getCredentialsPath(access.tunnelId);
     if (!existsSync(credentialsFile)) {
-        throw new Error(`缺少 Tunnel 凭据：${credentialsFile}。请运行 \`codex-mcp setup\` 重新设置`);
+        throw new Error(`缺少 Tunnel 凭据：${credentialsFile}。请运行 \`aimcp setup\` 重新设置`);
     }
     assertCredentialMatches(credentialsFile, access.tunnelId, access.accountId);
     const configPath = resolveCloudflaredRuntimeConfigPath(access);
@@ -283,7 +283,7 @@ export async function loadCommittedTunnelSetup(
     ) {
         throw new Error(
             `已提交公网配置与 Tunnel 运行文件不一致：${configPath}。` +
-            "运行时不会自动重写，请先运行 `codex-mcp doctor`，再通过 setup 修复。",
+            "运行时不会自动重写，请先运行 `aimcp doctor`，再通过 setup 修复。",
         );
     }
     return {
@@ -350,7 +350,7 @@ async function runConfigWizard(
     if (discovery.zones.length === 0) {
         throw new Error(
             "Cloudflare 账号里没有可用于公网 hostname 的域名。" +
-            "Named Tunnel 的 <UUID>.cfargotunnel.com 只能作为 CNAME 目标，不能直接作为 ChatGPT 地址。",
+            "Named Tunnel 的 <UUID>.cfargotunnel.com 只能作为 CNAME 目标，不能直接作为公网 MCP 地址。",
         );
     }
     printSuccess(`已检测到 ${discovery.zones.length} 个可用 Cloudflare 域名。`);
@@ -458,11 +458,11 @@ async function askPublicDomain(
 ): Promise<string> {
     while (true) {
         const domainRaw = (await askLine(
-            "给 ChatGPT 使用的域名（例如 mcp.example.com）",
+            "给 MCP 客户端使用的域名（例如 mcp.example.com）",
             defaultValue,
         )).trim();
         if (!domainRaw) {
-            printWarning("需要填写一个域名。没有域名时可用 `codex-mcp start --local` 只在本机运行。");
+            printWarning("需要填写一个域名。没有域名时可用 `aimcp start --local` 只在本机运行。");
             continue;
         }
         let domain: string;

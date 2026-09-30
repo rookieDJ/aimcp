@@ -55,7 +55,7 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
             level: existsSync(getUserConfigPath()) ? "ok" : "warn",
             detail: existsSync(getUserConfigPath())
                 ? getUserConfigPath()
-                : "还没有配置，运行 `codex-mcp setup` 即可",
+                : "还没有配置，运行 `aimcp setup` 即可",
         });
     } catch (error) {
         checks.push({
@@ -85,8 +85,8 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
             detail: configured
                 ? "已设置"
                 : publicModeExpected
-                  ? "未设置；公网连接需要连接密码，请在 Web Console 的“连接”页面设置，或运行 `codex-mcp auth`"
-                  : "未设置；仅本机模式不需要，连接 ChatGPT 时再设置即可",
+                  ? "未设置；公网连接需要连接密码，请在 Web Console 的“连接”页面设置，或运行 `aimcp auth`"
+                  : "未设置；仅本机模式不需要，远程 MCP 客户端连接时再设置即可",
         });
     } catch (error) {
         checks.push({
@@ -107,8 +107,8 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
             label: "公网地址",
             level: userConfig?.runtime?.mode === "public" ? "error" : "warn",
             detail: userConfig?.runtime?.mode === "public"
-                ? "未设置；当前默认启动是公网模式，请在 Web Console 的“连接”页面配置，或运行 `codex-mcp setup`"
-                : "未设置；当前仍可仅本机使用，需要连接 ChatGPT 时再配置即可",
+                ? "未设置；当前默认启动是公网模式，请在 Web Console 的“连接”页面配置，或运行 `aimcp setup`"
+                : "未设置；当前仍可仅本机使用，需要远程 MCP 客户端连接时再配置即可",
         });
     }
 
@@ -124,7 +124,7 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
             checks.push({
                 label: "cloudflared",
                 level: "error",
-                detail: "没有找到 cloudflared。重新运行 `codex-mcp setup` 可以继续配置",
+                detail: "没有找到 cloudflared。重新运行 `aimcp setup` 可以继续配置",
             });
         } else {
             try {
@@ -305,7 +305,7 @@ async function checkRipgrep(): Promise<DoctorCheck> {
         return {
             label: "文件搜索",
             level: "error",
-            detail: "文件搜索组件缺失；运行 `codex-mcp doctor --fix` 可以自动恢复",
+            detail: "文件搜索组件缺失；运行 `aimcp doctor --fix` 可以自动恢复",
         };
     }
     try {

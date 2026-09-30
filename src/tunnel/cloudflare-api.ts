@@ -353,7 +353,7 @@ async function cloudflareApiRequest<T>(
 function partialDnsError(prefix: string, original: unknown, restore: unknown): Error {
     return new Error(
         `${prefix}。原始错误：${readableError(original)}；恢复错误：${readableError(restore)}。` +
-        "Cloudflare 可能处于部分变更状态，请先运行 `codex-mcp doctor`，不要重复覆盖 DNS。",
+        "Cloudflare 可能处于部分变更状态，请先运行 `aimcp doctor`，不要重复覆盖 DNS。",
     );
 }
 

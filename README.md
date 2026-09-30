@@ -1,8 +1,8 @@
 # codex-mcp
 
-让 ChatGPT 直接操作你电脑上的代码项目。
+让 Gemini CLI 或 ChatGPT 通过 MCP 操作你电脑上的代码项目。
 
-安装并连接后，你可以在 ChatGPT 里直接说：
+安装并连接后，你可以在 Gemini CLI 或 ChatGPT 里直接说：
 
 - “先看看这个项目是做什么的”
 - “检查一下现在有哪些改动”
@@ -11,11 +11,11 @@
 - “把这个功能实现完”
 - “切到另一个项目继续”
 
-codex-mcp 会在你的电脑上读取文件、修改代码、执行命令、查看 Git，并把结果返回给 ChatGPT。
+codex-mcp 会在你的电脑上读取文件、修改代码、执行命令、查看 Git，并把结果返回给 MCP 客户端。
 
 为了减少模型选择工具时的歧义，多项目 daemon 只公开 15 个顶层工具：`project_control` 加上 `read`、`read_image`、`apply_patch`、`ls`、`grep`、`glob`、`code_explore`、`exec_command`、`write_stdin`、`skills_list`、`skill_read`、`mcp_tools`、`mcp_call`、`summary`。Git 和包管理等操作统一通过 `exec_command` 完成。
 
-> codex-mcp 面向个人开发环境使用。它拥有很强的本机操作能力，请只连接你自己的 ChatGPT 和你信任的项目。
+> codex-mcp 面向个人开发环境使用。它拥有很强的本机操作能力，请只连接你信任的 MCP 客户端和项目。
 
 ---
 
@@ -36,14 +36,14 @@ MCP Runtime ─────── 工具执行、OAuth、项目运行态
 Cloudflare Tunnel 或你自己的 HTTPS 入口
        │
        ▼
-ChatGPT
+ChatGPT 或 Gemini CLI
 ```
 
-Controller 只监听本机，负责管理状态；Runtime 可以启动或停止。`codex-mcp stop` 只停止 Runtime，所以 Web Console 仍然能打开并用于修复配置；`codex-mcp shutdown` 才会把两者都关闭。
+Controller 只监听本机，负责管理状态；Runtime 可以启动或停止。`aimcp stop` 只停止 Runtime，所以 Web Console 仍然能打开并用于修复配置；`aimcp shutdown` 才会把两者都关闭。
 
-所有注册项目共享 **一个 MCP Runtime**。`codex-mcp project add` 只注册项目，不会隐式启动 Runtime；`codex-mcp start` 会先注册当前项目，再按保存的运行模式启动 Runtime。
+所有注册项目共享 **一个 MCP Runtime**。`aimcp project add` 只注册项目，不会隐式启动 Runtime；`aimcp start` 会先注册当前项目，再按保存的运行模式启动 Runtime。
 
-每个 ChatGPT 对话只会绑定一个项目。这样你可以在不同对话里分别处理不同项目，也可以明确切换当前对话使用的项目。ChatGPT 会提供稳定的对话级 session 标识；其它 MCP 客户端如果既不提供对话元数据也不维持 MCP session，绑定会退化为该 OAuth client 的共享绑定，因此这类客户端应保持独立 MCP session。
+每个 MCP 会话只会绑定一个项目。这样你可以在不同会话里分别处理不同项目，也可以明确切换当前会话使用的项目。ChatGPT 会提供稳定的对话级 session 标识；Gemini CLI 等 MCP 客户端通过独立的 MCP session 隔离绑定。
 
 ---
 
@@ -86,32 +86,26 @@ codex-mcp 可以自动创建和管理 Cloudflare Tunnel。
 
 ## 1. 安装
 
-推荐用 npm：
+在本项目根目录执行以下命令，将当前源码安装为全局 `aimcp` 命令：
 
 ```bash
-npm install -g @meesii/codex-mcp
+npm install
+npm run build
+npm link
 ```
 
-也可以用安装脚本：
-
-### macOS / Linux
+不想注册全局命令时，可在项目根目录直接本地启动：
 
 ```bash
-curl -fsSL https://github.com/meesii/codex-mcp/releases/latest/download/install.sh | sh
+npm run start:local
 ```
 
-### Windows PowerShell
-
-```powershell
-irm https://github.com/meesii/codex-mcp/releases/latest/download/install.ps1 | iex
-```
-
-安装完成后，如果终端提示找不到 `codex-mcp`，关闭终端并重新打开一次。
+安装完成后，如果终端提示找不到 `aimcp`，关闭终端并重新打开一次。
 
 检查版本：
 
 ```bash
-codex-mcp --version
+aimcp --version
 ```
 
 ---
@@ -121,24 +115,24 @@ codex-mcp --version
 运行：
 
 ```bash
-codex-mcp open
+aimcp open
 ```
 
 这只会启动本机 Controller 并打开 Web Console，**不会启动 MCP Runtime，也不会自动修改公网配置**。
 
 推荐按这个顺序使用：
 
-1. 在“项目”里添加 ChatGPT 可以操作的目录
-2. 如果要从 ChatGPT 连接，在“连接”里按“公网地址 → 连接密码 → 检查连接”三步完成配置
+1. 在“项目”里添加 MCP 客户端可以操作的目录
+2. 如果要从远程 MCP 客户端连接，在“连接”里按“公网地址 → 连接密码 → 检查连接”三步完成配置
 3. 回到“概览”，明确选择“启动公网服务”或“仅本机启动”
 4. Codex / Claude / Skills、诊断、日志和更新统一放在“系统”里
 
 如果你更喜欢终端，也可以完全不用 Web：
 
 ```bash
-codex-mcp project add /path/to/project
-codex-mcp setup        # 只有需要 ChatGPT 公网连接时才需要
-codex-mcp start
+aimcp project add /path/to/project
+aimcp setup        # 只有需要远程 MCP 连接时才需要
+aimcp start
 ```
 
 ### 公网连接
@@ -166,7 +160,7 @@ https://codex-mcp.example.com/mcp
 
 如果你的 Cloudflare 账号里没有已经接入 Cloudflare 的域名，自动 Tunnel 模式无法完成配置。
 
-> Cloudflare Tunnel 生成的 `<UUID>.cfargotunnel.com` 是 DNS CNAME 目标，不是直接给 ChatGPT 使用的 MCP 地址。
+> Cloudflare Tunnel 生成的 `<UUID>.cfargotunnel.com` 是 DNS CNAME 目标，不是直接给 MCP 客户端使用的地址。
 
 ### 使用自己的 HTTPS 入口
 
@@ -182,7 +176,7 @@ https://你的域名/mcp
 
 ### 连接密码
 
-公网验证完成后，codex-mcp 会先生成 ChatGPT 连接密码。
+公网验证完成后，codex-mcp 会先生成远程 MCP 连接密码。
 
 **请保存这个密码。**
 
@@ -191,7 +185,7 @@ https://你的域名/mcp
 重新设置密码：
 
 ```bash
-codex-mcp auth
+aimcp auth
 ```
 
 ### 外部能力（可选）
@@ -218,25 +212,25 @@ codex-mcp auth
 
 ```bash
 cd /path/to/your-project
-codex-mcp start
+aimcp start
 ```
 
 `start` 的顺序是：先注册当前项目，再启动/复用 Controller，最后启动 Runtime。这样即使公网配置有问题，项目注册也不会丢，CLI 会给出 Web Console 地址供你继续修复。
 
-如果还没有配置公网连接，裸 `codex-mcp start` 默认使用**本机模式**。显式运行 `codex-mcp start --local` 也会把本机模式保存为以后默认；公网模式同样会保存，下次裸 `start` 会复用实际运行模式。
+如果还没有配置公网连接，裸 `aimcp start` 默认使用**本机模式**。显式运行 `aimcp start --local` 也会把本机模式保存为以后默认；公网模式同样会保存，下次裸 `start` 会复用实际运行模式。
 
 同一个项目以后再次运行不会创建第二套服务器，只会刷新项目状态并确保共享 Runtime 可用。
 
 你也可以从其他目录指定项目：
 
 ```bash
-codex-mcp start --root /path/to/your-project
+aimcp start --root /path/to/your-project
 ```
 
 查看当前状态：
 
 ```bash
-codex-mcp status
+aimcp status
 ```
 
 你会看到：
@@ -247,7 +241,7 @@ codex-mcp status
 - 公网 MCP 地址
 - Cloudflare Tunnel 是否在线
 - 当前 CLI 版本和正在运行的 daemon 版本
-- 两者版本不一致时的 `codex-mcp restart` 提示
+- 两者版本不一致时的 `aimcp restart` 提示
 - 已注册项目
 - 每个项目当前有多少会话绑定
 
@@ -272,11 +266,32 @@ MCP 地址就是 setup 最后显示的公网地址，例如：
 https://codex-mcp.example.com/mcp
 ```
 
-授权时使用 `codex-mcp setup` 生成的连接密码。
+授权时使用 `aimcp setup` 生成的连接密码。
 
 连接完成后，就可以直接让 ChatGPT 操作本机项目。
 
 > 完整 MCP 写入能力是否可用取决于 ChatGPT 当前的套餐、工作区权限和产品开放状态。如果你的设置里没有 Developer Mode 或创建自定义 MCP App 的入口，请先确认当前 ChatGPT 账号是否支持。
+
+## 5. 连接 Gemini CLI
+
+Gemini CLI 支持通过 HTTP 连接 MCP 服务。
+
+在项目目录中启动本机服务：
+
+```bash
+npm run start:local
+```
+
+然后把本机 MCP 服务注册到 Gemini CLI 的用户配置：
+
+```bash
+gemini mcp add --scope user --transport http aimcp http://127.0.0.1:3920/mcp
+gemini mcp list
+```
+
+确认显示 `Connected` 后，重启 Gemini CLI；进入会话后运行 `/mcp` 查看工具。本机模式只允许同一台电脑上的客户端访问，不需要连接密码。端口 `3920` 是默认值；如果修改过服务端口，注册时同步替换地址。使用公网地址时，把地址换成 `https://你的域名/mcp` 并以公网模式启动；Gemini CLI 会按 OAuth 流程提示授权，连接密码可通过 `aimcp setup` 创建或用 `aimcp auth` 修改。
+
+更多配置选项见 [Gemini CLI MCP 文档](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md)。
 
 ---
 
@@ -286,8 +301,8 @@ https://codex-mcp.example.com/mcp
 
 先区分两个概念：
 
-- **注册项目（Registered Project）**：通过 Web Console、`codex-mcp project add` 或 `codex-mcp start` 注册的项目。一个 ChatGPT 对话同一时间只绑定一个注册项目。
-- **会话绑定（Conversation Binding）**：ChatGPT 对话当前选择的注册项目；文件和命令工具只能在这个项目目录内运行。
+- **注册项目（Registered Project）**：通过 Web Console、`aimcp project add` 或 `aimcp start` 注册的项目。一个 MCP 会话同一时间只绑定一个注册项目。
+- **会话绑定（Conversation Binding）**：MCP 会话当前选择的注册项目；文件和命令工具只能在这个项目目录内运行。
 
 项目注册由本机 Controller/CLI 完成；模型只通过 `project_control` 选择已经注册的项目，不会自行注册项目或扩大路径边界。
 
@@ -305,13 +320,13 @@ https://codex-mcp.example.com/mcp
 
 ```bash
 cd ~/code/api
-codex-mcp start
+aimcp start
 
 cd ~/code/web
-codex-mcp start
+aimcp start
 
 cd ~/code/mobile
-codex-mcp start
+aimcp start
 ```
 
 它们会全部注册到同一个 codex-mcp 后台服务。
@@ -321,34 +336,34 @@ codex-mcp start
 查看所有项目：
 
 ```bash
-codex-mcp project list
+aimcp project list
 ```
 
 也可以显式注册指定目录：
 
 ```bash
-codex-mcp project add /path/to/project
+aimcp project add /path/to/project
 ```
 
 查看单个项目详情：
 
 ```bash
-codex-mcp project info <项目 ID、项目名或目录>
+aimcp project info <项目 ID、项目名或目录>
 ```
 
 ---
 
-## ChatGPT 对话会绑定一个项目
+## MCP 会话会绑定一个项目
 
-一个 ChatGPT 对话只操作一个项目。
+一个 MCP 会话只操作一个项目。
 
 例如你可以说：
 
 > 使用 web 项目，看看首页现在有什么问题。
 
-ChatGPT 会通过 `project_control` 选择对应项目，然后后面的文件读取、代码修改、命令执行和 Git 操作都会以这个项目为上下文。
+MCP 客户端会通过 `project_control` 选择对应项目，然后后面的文件读取、代码修改、命令执行和 Git 操作都会以这个项目为上下文。
 
-另一个 ChatGPT 对话可以同时绑定 `api` 项目，互不影响。
+另一个独立的 MCP 会话可以同时绑定 `api` 项目，互不影响。
 
 如果要在当前对话切换项目，可以直接说：
 
@@ -359,10 +374,10 @@ ChatGPT 会通过 `project_control` 选择对应项目，然后后面的文件�
 如果某些旧会话不再需要保留项目绑定，可以在 Web Console 的“项目”页面逐个或全部清除，也可以在终端运行：
 
 ```bash
-codex-mcp bindings clean [项目]
+aimcp bindings clean [项目]
 ```
 
-终端会列出该项目的会话编号；只会清理你显式选中的绑定。清理不会删除 ChatGPT 对话或项目文件，这些会话下次使用项目工具时需要重新选择项目。
+终端会列出该项目的会话编号；只会清理你显式选中的绑定。清理不会删除客户端会话或项目文件，这些会话下次使用项目工具时需要重新选择项目。
 
 ---
 
@@ -371,16 +386,16 @@ codex-mcp bindings clean [项目]
 推荐使用：
 
 ```bash
-codex-mcp project remove <项目 ID、项目名或目录>
+aimcp project remove <项目 ID、项目名或目录>
 ```
 
 如果当前终端就在项目目录，也可以省略目标：
 
 ```bash
-codex-mcp project remove
+aimcp project remove
 ```
 
-这只会停用目标项目；后台服务、Cloudflare Tunnel 和其他项目仍然继续运行。重新启用时，再运行 `codex-mcp start` 或 `codex-mcp project add <目录>`。
+这只会停用目标项目；后台服务、Cloudflare Tunnel 和其他项目仍然继续运行。重新启用时，再运行 `aimcp start` 或 `aimcp project add <目录>`。
 
 ---
 
@@ -389,13 +404,13 @@ codex-mcp project remove
 停止：
 
 ```bash
-codex-mcp stop
+aimcp stop
 ```
 
 重启：
 
 ```bash
-codex-mcp restart
+aimcp restart
 ```
 
 `stop` 只关闭 MCP Runtime、项目运行态和 Cloudflare Tunnel，**Controller / Web Console 继续运行**，项目注册状态也会保留。`restart` 只重启当前 Runtime，并保持当前运行模式。
@@ -403,14 +418,14 @@ codex-mcp restart
 如果要把 codex-mcp 的 Controller 和 Runtime 都完全关闭：
 
 ```bash
-codex-mcp shutdown
+aimcp shutdown
 ```
 
 ---
 
-# ChatGPT 可以做什么？
+# MCP 客户端可以做什么？
 
-连接项目以后，ChatGPT 可以通过 codex-mcp：
+连接项目以后，MCP 客户端可以通过 codex-mcp：
 
 ### 读取和搜索代码
 
@@ -448,7 +463,7 @@ codex-mcp shutdown
 
 > 先看看这个项目现在是什么情况。
 
-ChatGPT 会先用 `project_control` 查看并绑定一个已注册项目，再通过精简工具集读取代码、Skills 和命令结果。一个对话同一时间只绑定一个项目。
+客户端会先用 `project_control` 查看并绑定一个已注册项目，再通过精简工具集读取代码、Skills 和命令结果。一个 MCP 会话同一时间只绑定一个项目。
 
 ---
 
@@ -462,7 +477,7 @@ ChatGPT 会先用 `project_control` 查看并绑定一个已注册项目，再�
 
 ```bash
 cd ~/code/my-project
-codex-mcp start
+aimcp start
 ```
 
 那么：
@@ -482,10 +497,10 @@ codex-mcp start
 需要处理另一个目录时，把它注册成独立项目：
 
 ```bash
-codex-mcp project add /path/to/other-project
+aimcp project add /path/to/other-project
 ```
 
-然后让 ChatGPT 使用 `project_control` 明确切换。工具不会通过绝对路径绕过当前项目边界。
+然后让 MCP 客户端使用 `project_control` 明确切换。工具不会通过绝对路径绕过当前项目边界。
 
 > 路径限制不是完整的操作系统沙箱。项目内启动的 shell 命令仍然拥有当前系统用户本身拥有的系统权限。
 
@@ -518,7 +533,7 @@ Claude Code 项目内的 `.claude/skills` 也可以按项目读取。
 重新管理这些设置：
 
 ```bash
-codex-mcp setup
+aimcp setup
 ```
 
 然后选择：
@@ -538,34 +553,34 @@ codex-mcp setup
 
 | 命令 | 作用 |
 |---|---|
-| `codex-mcp` | 显示帮助，不隐式启动服务 |
-| `codex-mcp open` | 启动/复用本机 Controller 并打开 Web Console；不启动 Runtime |
-| `codex-mcp start` | 先注册当前项目，再按保存的模式启动/复用 MCP Runtime |
-| `codex-mcp status` | 查看 Controller、MCP Runtime、默认运行模式、Tunnel 和所有项目 |
-| `codex-mcp status --json` | 输出稳定的机器可读状态，其中包含本机 Web Console 地址 |
+| `aimcp` | 显示帮助，不隐式启动服务 |
+| `aimcp open` | 启动/复用本机 Controller 并打开 Web Console；不启动 Runtime |
+| `aimcp start` | 先注册当前项目，再按保存的模式启动/复用 MCP Runtime |
+| `aimcp status` | 查看 Controller、MCP Runtime、默认运行模式、Tunnel 和所有项目 |
+| `aimcp status --json` | 输出稳定的机器可读状态，其中包含本机 Web Console 地址 |
 | `http://127.0.0.1:<Controller端口>/` | 打开完整本机 Web Console；可执行 CLI 的用户级操作 |
-| `codex-mcp restart` | 重启 MCP Runtime，保留 Controller 和项目注册状态 |
-| `codex-mcp stop` | 停止 MCP Runtime 和 Tunnel；Controller / Web Console 保持在线 |
-| `codex-mcp shutdown` | 完全关闭 MCP Runtime 和 Controller / Web Console |
-| `codex-mcp project list` | 查看已注册项目 |
-| `codex-mcp project add [目录]` | 只注册项目，默认当前目录；不会启动 Runtime |
-| `codex-mcp project remove [项目]` | 停用项目，默认当前目录 |
-| `codex-mcp project info [项目]` | 查看项目详情 |
-| `codex-mcp bindings clean [项目]` | 交互清理指定项目的旧会话绑定，默认当前项目 |
-| `codex-mcp logs [--lines N]` | 查看最近运行日志 |
-| `codex-mcp logs -f` | 持续跟随运行日志 |
-| `codex-mcp setup` | 首次设置或管理现有配置 |
-| `codex-mcp doctor` | 只读检查安装、配置和依赖 |
-| `codex-mcp doctor --fix` | 恢复缺失的文件搜索组件、创建本机目录、清理失效 daemon 状态等安全修复 |
-| `codex-mcp auth` | 修改 ChatGPT 连接密码 |
-| `codex-mcp update` | 更新到最新版本 |
-| `codex-mcp start --root <目录>` | 注册指定目录，而不是当前目录 |
-| `codex-mcp start --local` | 显式切换并保存为本机模式，不开放公网 |
-| `codex-mcp start --public` | 显式切换并保存为公网模式；需要先配置公网连接和密码 |
-| `codex-mcp start --no-tunnel` | 公网模式下不自动启动 Cloudflare Tunnel |
-| `codex-mcp start --tunnel-logs` | 把 Tunnel 日志同时输出到运行日志 |
-| `codex-mcp --version` | 查看版本 |
-| `codex-mcp help` | 查看帮助 |
+| `aimcp restart` | 重启 MCP Runtime，保留 Controller 和项目注册状态 |
+| `aimcp stop` | 停止 MCP Runtime 和 Tunnel；Controller / Web Console 保持在线 |
+| `aimcp shutdown` | 完全关闭 MCP Runtime 和 Controller / Web Console |
+| `aimcp project list` | 查看已注册项目 |
+| `aimcp project add [目录]` | 只注册项目，默认当前目录；不会启动 Runtime |
+| `aimcp project remove [项目]` | 停用项目，默认当前目录 |
+| `aimcp project info [项目]` | 查看项目详情 |
+| `aimcp bindings clean [项目]` | 交互清理指定项目的旧会话绑定，默认当前项目 |
+| `aimcp logs [--lines N]` | 查看最近运行日志 |
+| `aimcp logs -f` | 持续跟随运行日志 |
+| `aimcp setup` | 首次设置或管理现有配置 |
+| `aimcp doctor` | 只读检查安装、配置和依赖 |
+| `aimcp doctor --fix` | 恢复缺失的文件搜索组件、创建本机目录、清理失效 daemon 状态等安全修复 |
+| `aimcp auth` | 修改远程 MCP 连接密码 |
+| `aimcp update` | 更新到最新版本 |
+| `aimcp start --root <目录>` | 注册指定目录，而不是当前目录 |
+| `aimcp start --local` | 显式切换并保存为本机模式，不开放公网 |
+| `aimcp start --public` | 显式切换并保存为公网模式；需要先配置公网连接和密码 |
+| `aimcp start --no-tunnel` | 公网模式下不自动启动 Cloudflare Tunnel |
+| `aimcp start --tunnel-logs` | 把 Tunnel 日志同时输出到运行日志 |
+| `aimcp --version` | 查看版本 |
+| `aimcp help` | 查看帮助 |
 
 ---
 
@@ -574,7 +589,7 @@ codex-mcp setup
 已经完成首次配置后，再运行：
 
 ```bash
-codex-mcp setup
+aimcp setup
 ```
 
 不会重新走一遍所有步骤。
@@ -620,7 +635,7 @@ codex-mcp 的用户数据默认保存在：
 - `controller.json`：仅本机 Controller 的 PID、loopback 端口和随机控制凭据；Web Console 由它提供
 - `daemon.json`：当前 MCP Runtime 状态；执行 `stop` 后会移除，而 Controller 继续运行
 - `projects.json`：注册过的项目
-- `session-bindings.json`：ChatGPT 会话和项目的绑定关系
+- `session-bindings.json`：MCP 会话和项目的绑定关系
 
 Cloudflare 的登录和 Tunnel 凭据由 codex-mcp 放在自己的配置目录中管理，不依赖系统级 `~/.cloudflared` 作为长期运行状态。
 
@@ -664,7 +679,7 @@ Cloudflare Tunnel 原始日志：
 运行：
 
 ```bash
-codex-mcp doctor
+aimcp doctor
 ```
 
 它会检查：
@@ -686,7 +701,7 @@ codex-mcp doctor
 如果文件搜索组件缺失，可以直接运行：
 
 ```bash
-codex-mcp doctor --fix
+aimcp doctor --fix
 ```
 
 它会下载项目固定版本的受管 ripgrep，校验 SHA-256，并在安装后重新验证版本；不需要重新执行整套安装脚本。
@@ -695,7 +710,7 @@ codex-mcp doctor --fix
 
 # 常见问题
 
-## `codex-mcp` 命令找不到
+## `aimcp` 命令找不到
 
 重新打开终端后再试。
 
@@ -708,8 +723,8 @@ codex-mcp doctor --fix
 先运行：
 
 ```bash
-codex-mcp status
-codex-mcp doctor
+aimcp status
+aimcp doctor
 ```
 
 确认：
@@ -734,7 +749,7 @@ codex-mcp doctor
 重新设置：
 
 ```bash
-codex-mcp auth
+aimcp auth
 ```
 
 ---
@@ -744,7 +759,7 @@ codex-mcp auth
 运行：
 
 ```bash
-codex-mcp setup
+aimcp setup
 ```
 
 选择：
@@ -762,7 +777,7 @@ codex-mcp 会在临时目录完成新登录并验证凭据，然后才替换自�
 重新运行：
 
 ```bash
-codex-mcp setup
+aimcp setup
 ```
 
 codex-mcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配。
@@ -800,7 +815,7 @@ codex-mcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配
 每个项目只需要运行一次：
 
 ```bash
-codex-mcp start
+aimcp start
 ```
 
 用来把它注册到同一个后台服务。
@@ -813,18 +828,18 @@ codex-mcp start
 
 默认不会。
 
-正常的 `codex-mcp start` 会启动后台守护进程，终端命令完成后服务继续运行。
+正常的 `aimcp start` 会启动后台守护进程，终端命令完成后服务继续运行。
 
 查看：
 
 ```bash
-codex-mcp status
+aimcp status
 ```
 
 停止后台服务：
 
 ```bash
-codex-mcp stop
+aimcp stop
 ```
 
 ---
@@ -836,7 +851,7 @@ codex-mcp stop
 1.0 是一次 breaking release，不读取旧版命令、旧版配置字段或旧 OAuth 状态。升级前请用已安装的旧版 CLI 停止服务，备份 `~/.codex-mcp`，再移走其中的 `config.json`、`oauth-state.json`、`daemon.json`、`projects.json` 和 `session-bindings.json`，然后重新运行：
 
 ```bash
-codex-mcp setup
+aimcp setup
 ```
 
 请保留安装目录 `~/.codex-mcp/npm`、托管组件、连接密码和 Cloudflare 凭据。重新 setup 会选择新的已提交配置；旧 OAuth 会话与项目绑定不会恢复，项目需要重新注册。不要删除整个 `~/.codex-mcp`，否则脚本安装的 CLI 也会被删除。
@@ -844,7 +859,7 @@ codex-mcp setup
 旧的 `tunnel`、`exit` 和 `serve --foreground` 入口已删除；分别使用 `setup`、`stop` / `project remove` 和后台 `start`。
 
 ```bash
-codex-mcp update
+aimcp update
 ```
 
 1.0 之后的常规更新会保留配置和连接密码；从旧版首次升级仍须完成上面的基线重置。
@@ -852,36 +867,22 @@ codex-mcp update
 更新后运行：
 
 ```bash
-codex-mcp restart
+aimcp restart
 ```
 
-这样可以确保正在运行的 daemon 使用当前 CLI 版本。`codex-mcp status` 会同时显示 CLI 和 daemon 版本；如果两者不一致，会直接提示重启。
+这样可以确保正在运行的 daemon 使用当前 CLI 版本。`aimcp status` 会同时显示 CLI 和 daemon 版本；如果两者不一致，会直接提示重启。
 
 ---
 
 # 卸载
 
-如果是用 npm 安装的：
+如果是通过本项目的 `npm link` 安装的：
 
 ```bash
-npm uninstall -g @meesii/codex-mcp
+npm unlink -g @meesii/codex-mcp
 ```
 
-如果是用安装脚本安装的：
-
-### macOS / Linux
-
-```bash
-curl -fsSL https://github.com/meesii/codex-mcp/releases/latest/download/uninstall.sh | sh
-```
-
-### Windows PowerShell
-
-```powershell
-irm https://github.com/meesii/codex-mcp/releases/latest/download/uninstall.ps1 | iex
-```
-
-卸载程序默认保留用户配置和连接密码。
+此操作只移除全局命令，不会删除用户配置和连接密码。
 
 如果你确定不再使用，并希望彻底删除所有状态，可以再手动删除：
 
@@ -893,7 +894,7 @@ irm https://github.com/meesii/codex-mcp/releases/latest/download/uninstall.ps1 |
 
 # 安全说明
 
-codex-mcp 的目标不是做一个强隔离沙箱，而是让个人开发环境中的 ChatGPT 可以真正完成开发工作。
+codex-mcp 的目标不是做一个强隔离沙箱，而是让受信任的 MCP 客户端可以在个人开发环境中完成开发工作。
 
 因此请注意：
 

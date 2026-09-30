@@ -202,7 +202,7 @@ export function normalizeDaemonStatusPayload(value: unknown): DaemonStatusPayloa
         !isRuntimeIntent(input.runtimeIntent) || !isDaemonAuth(input.auth) ||
         !isTunnelObservedStatus(input.tunnel) ||
         !Array.isArray(input.projects)) {
-        throw new Error("守护进程返回了不完整的 1.0 状态；请运行 codex-mcp restart");
+        throw new Error("守护进程返回了不完整的 1.0 状态；请运行 aimcp restart");
     }
     const mode = input.mode;
     if (mode !== "local" && mode !== "public") {

@@ -18,7 +18,7 @@
 ### OAuth / HTTP
 
 - 新增 `src/auth/storage.ts`：原子 owner-only JSON store + async mutex。
-- 新增 `src/auth/password-store.ts`：Argon2id 管理员密码，`codex-mcp auth` 无回显设置/重置。
+- 新增 `src/auth/password-store.ts`：Argon2id 管理员密码，`aimcp auth` 无回显设置/重置。
 - 新增 `src/auth/oauth-state.ts`：DCR clients、authorization code/access/refresh token digest、resource binding、refresh rotation/replay family revoke、issuer binding。
 - 新增 `src/auth/provider.ts`：SDK `OAuthServerProvider`、CIMD client store、DCR cap、授权密码页、RFC9207 `iss`。
 - 新增 `src/auth/server.ts`：AS metadata + CIMD flag、SDK auth router、Bearer guard、CF-aware rate limit；最终授权交互采用 SDK 原生 GET/POST `/authorize`，不保留独立 `/oauth/approve`。

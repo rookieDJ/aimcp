@@ -25,12 +25,12 @@ export async function checkConnection(): Promise<ConnectionCheck> {
     const access = loadUserConfig().publicAccess;
     const configured = Boolean(access);
     const password = await hasAdminPassword();
-    checks.push({ id: "password", label: "连接密码", state: password ? "passed" : "pending", detail: password ? "已设置连接密码。" : "设置密码后才能安全连接 ChatGPT。", ...(!password ? { action: "connect" as const } : {}) });
+    checks.push({ id: "password", label: "连接密码", state: password ? "passed" : "pending", detail: password ? "已设置连接密码。" : "设置密码后才能安全接受远程 MCP 连接。", ...(!password ? { action: "connect" as const } : {}) });
     if (access && daemon) {
         try {
             const status = await daemon.client.status();
             if (!status.auth.required || status.publicMcpUrl !== `https://${access.domain}/mcp`) {
-                checks.push({ id: "public", label: "公网地址", state: "pending", detail: "当前服务仅在本机运行，请启动 ChatGPT 连接。", action: "start" });
+                checks.push({ id: "public", label: "公网地址", state: "pending", detail: "当前服务仅在本机运行，请切换到公网模式以接受远程 MCP 连接。", action: "start" });
             } else {
                 await verifyRunningPublicRoute(access.domain, daemon.state.host, daemon.state.port, { totalTimeoutMs: 10_000 });
                 const challenge = await safeHttpGet(status.publicMcpUrl, { httpsOnly: true, maxBytes: 4096, maxRedirects: 0, timeoutMs: 10_000, headers: { Accept: "application/json, text/event-stream" } });
@@ -41,7 +41,7 @@ export async function checkConnection(): Promise<ConnectionCheck> {
             checks.push({ id: "public", label: "公网地址", state: "failed", detail: "公网地址暂时不可用，请检查连接设置。", action: "connect" });
         }
     } else {
-        checks.push({ id: "public", label: "公网地址", state: "pending", detail: configured ? "启动服务后再检查公网地址。" : "请先设置 ChatGPT 连接地址。", action: configured ? "start" : "connect" });
+        checks.push({ id: "public", label: "公网地址", state: "pending", detail: configured ? "启动服务后再检查公网地址。" : "请先设置公网 MCP 地址。", action: configured ? "start" : "connect" });
     }
     return { checkedAt: new Date().toISOString(), ready: checks.every((item) => item.state === "passed"), checks };
 }

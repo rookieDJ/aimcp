@@ -245,7 +245,7 @@ function restartRuntime(): void {
     }, "MCP 服务已重新启动");
 }
 function stopRuntime(): void {
-    void confirmAction("停止 MCP 服务？", "ChatGPT 和其他客户端将暂时无法使用项目。控制面板会继续运行。", "停止服务", () => runAction(async () => {
+    void confirmAction("停止 MCP 服务？", "连接到 codex-mcp 的客户端将暂时无法使用项目。控制面板会继续运行。", "停止服务", () => runAction(async () => {
         connectionResult.value = undefined;
         await api("/api/runtime/stop", { method: "POST", body: {} });
         await refreshLive(false);
@@ -275,14 +275,14 @@ function reactivateProject(project: Project): void {
     }, "项目已重新启用");
 }
 function removeProject(project: Project): void {
-    void confirmAction(`停用“${project.name}”？`, "项目文件不会被删除，但 ChatGPT 将不能再使用它，已有会话绑定也会清除。", "停用项目", () => runAction(async () => {
+    void confirmAction(`停用“${project.name}”？`, "项目文件不会被删除，但 MCP 客户端将不能再使用它，已有会话绑定也会清除。", "停用项目", () => runAction(async () => {
         await api(`/api/projects/${encodeURIComponent(project.id)}`, { method: "DELETE", body: {} });
         await refreshLive(false);
     }, "项目已停用"), true);
 }
 function cleanupConversations(project: Project, conversationIds: string[]): void {
     if (!conversationIds.length) return;
-    void confirmAction("清除会话绑定？", `将清除 ${conversationIds.length} 个会话的项目选择记录。不会删除 ChatGPT 对话或项目文件。`, "清除绑定", () => runAction(async () => {
+    void confirmAction("清除会话绑定？", `将清除 ${conversationIds.length} 个会话的项目选择记录。不会删除客户端会话或项目文件。`, "清除绑定", () => runAction(async () => {
         await api(`/api/projects/${encodeURIComponent(project.id)}/conversations/cleanup`, { method: "POST", body: { conversationIds } });
         await refreshLive(false);
     }, "会话绑定已清理"), true);
@@ -293,7 +293,7 @@ function discoverCloudflare(): void {
     });
 }
 function applyCloudflare(zone: string, prefix: string, overwrite: boolean): void {
-    const action = () => startOperation("connect", "/api/setup/public/cloudflare", { zone, prefix, allowDnsOverwrite: overwrite }, "ChatGPT 连接地址已配置", () => refreshLive(false));
+    const action = () => startOperation("connect", "/api/setup/public/cloudflare", { zone, prefix, allowDnsOverwrite: overwrite }, "公网 MCP 地址已配置", () => refreshLive(false));
     if (!overwrite) { void action(); return; }
     void confirmAction("允许替换同名 DNS 记录？", `如果 ${prefix}.${zone} 已被其他服务使用，原记录会被替换。`, "允许并继续", action, true);
 }
@@ -356,7 +356,7 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
             <div class="console-logo">C</div>
             <h1>codex-mcp 已关闭</h1>
             <p>Runtime 和 Web Console 都已退出，项目与连接配置仍然保留。</p>
-            <code>codex-mcp open</code>
+            <code>aimcp open</code>
             <div class="muted small">需要重新管理时，在终端运行上面的命令。</div>
         </div>
     </div>
@@ -414,10 +414,10 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
                 <el-descriptions-item label="公网连接">{{ liveRuntime?.publicMcpUrl ? "已连接" : "未连接" }}</el-descriptions-item>
                 <el-descriptions-item label="登录保护">{{ liveRuntime?.auth?.required ? (liveRuntime.auth.configured ? "已启用" : "等待设置密码") : "仅本机，无需登录" }}</el-descriptions-item>
                 <el-descriptions-item label="本机地址"><span class="mono small break-all">{{ liveRuntime?.localUrl ?? "—" }}</span></el-descriptions-item>
-                <el-descriptions-item label="ChatGPT 地址"><span class="mono small break-all">{{ liveRuntime?.publicMcpUrl ?? (setup?.config.publicAccess ? `https://${setup.config.publicAccess.domain}/mcp` : "—") }}</span></el-descriptions-item>
+                <el-descriptions-item label="公网 MCP 地址"><span class="mono small break-all">{{ liveRuntime?.publicMcpUrl ?? (setup?.config.publicAccess ? `https://${setup.config.publicAccess.domain}/mcp` : "—") }}</span></el-descriptions-item>
             </el-descriptions>
             <div class="section-heading" style="margin-top: 24px"><div><h2>常用命令</h2></div></div>
-            <div class="command-list"><div class="command-row"><code>codex-mcp status</code><span class="muted small">查看状态</span></div><div class="command-row"><code>codex-mcp start</code><span class="muted small">启动服务</span></div><div class="command-row"><code>codex-mcp logs -f</code><span class="muted small">跟随日志</span></div><div class="command-row"><code>codex-mcp doctor</code><span class="muted small">检查问题</span></div></div>
+            <div class="command-list"><div class="command-row"><code>aimcp status</code><span class="muted small">查看状态</span></div><div class="command-row"><code>aimcp start</code><span class="muted small">启动服务</span></div><div class="command-row"><code>aimcp logs -f</code><span class="muted small">跟随日志</span></div><div class="command-row"><code>aimcp doctor</code><span class="muted small">检查问题</span></div></div>
         </el-drawer>
     </div>
     </el-config-provider>

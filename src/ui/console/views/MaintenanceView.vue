@@ -54,10 +54,10 @@ onBeforeUnmount(stopLogStream);
 function friendlyCheck(label: string, detail: string): { title: string; detail: string } {
     const titles: Record<string, string> = {
         "Node.js": "运行环境", "Git": "Git 工具", "文件搜索": "文件搜索", "配置文件": "本机设置",
-        "外部能力": "可用工具与技能", "连接密码": "连接密码", "公网地址": "ChatGPT 连接地址", "守护进程": "MCP 服务",
+        "外部能力": "可用工具与技能", "连接密码": "连接密码", "公网地址": "公网 MCP 地址", "守护进程": "MCP 服务",
     };
     if (label === "连接密码" && /未设置/.test(detail)) return { title: titles[label]!, detail: "尚未设置，请前往“连接”页面完成。" };
-    if (label === "公网地址" && /未设置/.test(detail)) return { title: titles[label]!, detail: "尚未配置，配置后才能从 ChatGPT 网页端连接。" };
+    if (label === "公网地址" && /未设置/.test(detail)) return { title: titles[label]!, detail: "尚未配置，配置后才能接受远程 MCP 连接。" };
     if (label === "守护进程" && /^pid\s/i.test(detail)) return { title: titles[label]!, detail: "服务正在本机运行。" };
     if (label === "配置文件") return { title: titles[label]!, detail: "设置文件可以正常读取。" };
     return { title: titles[label] ?? label, detail };

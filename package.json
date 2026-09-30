@@ -1,7 +1,7 @@
 {
     "name": "@meesii/codex-mcp",
     "version": "1.2.0",
-    "description": "Lean local coding MCP server for ChatGPT with embedded OAuth and Streamable HTTP.",
+    "description": "Local coding MCP server for ChatGPT, Gemini CLI, and other MCP clients with OAuth and Streamable HTTP.",
     "type": "module",
     "main": "dist/cli.js",
     "files": [
@@ -13,7 +13,7 @@
         "LICENSE"
     ],
     "bin": {
-        "codex-mcp": "dist/cli.js"
+        "aimcp": "dist/cli.js"
     },
     "engines": {
         "node": ">=22"
@@ -33,11 +33,13 @@
         "test:package": "node scripts/package-smoke.mjs",
         "prepack": "npm run build",
         "start": "node dist/cli.js",
+        "start:local": "npm run build && node dist/cli.js start --local",
         "typecheck": "tsc -p tsconfig.json --noEmit && vue-tsc -p tsconfig.console.json --noEmit"
     },
     "keywords": [
         "mcp",
         "chatgpt",
+        "gemini-cli",
         "coding"
     ],
     "repository": {

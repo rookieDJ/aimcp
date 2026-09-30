@@ -18,7 +18,7 @@ function colorFor(state: ConnectionCheck["checks"][number]["state"]): string {
         <div class="section-heading">
             <div>
                 <h2>{{ result.ready ? "连接检查通过" : "还有检查项需要处理" }}</h2>
-                <p>{{ result.ready ? "服务已准备好，可以在 ChatGPT 中使用这个 MCP 连接。" : "按下面提示处理后再重新检查。" }}</p>
+                <p>{{ result.ready ? "服务已准备好，可以在支持 OAuth 的远程 MCP 客户端中使用。" : "按下面提示处理后再重新检查。" }}</p>
             </div>
             <el-tag :type="result.ready ? 'success' : 'warning'">{{ result.ready ? "已就绪" : "未就绪" }}</el-tag>
         </div>

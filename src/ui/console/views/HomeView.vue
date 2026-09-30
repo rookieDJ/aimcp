@@ -48,12 +48,12 @@ async function copyUrl(): Promise<void> {
     <div>
         <div class="page-heading">
             <h1>概览</h1>
-            <p>查看 MCP、ChatGPT 连接和项目状态。需要操作时直接进入对应页面。</p>
+            <p>查看 MCP 服务、远程连接和项目状态。需要操作时直接进入对应页面。</p>
         </div>
 
         <div class="metric-grid">
             <el-card class="metric-card" shadow="never"><div class="metric-label">MCP 服务</div><div class="metric-value">{{ loading ? "…" : running ? "运行中" : "未启动" }}</div><div class="metric-detail">{{ status?.runtime.runtime?.mode === "local" ? "仅本机" : status?.runtime.runtime?.mode ?? "等待启动" }}</div></el-card>
-            <el-card class="metric-card" shadow="never"><div class="metric-label">ChatGPT 连接</div><div class="metric-value">{{ configured ? "已配置" : "未配置" }}</div><div class="metric-detail">{{ connectionDetail }}</div></el-card>
+            <el-card class="metric-card" shadow="never"><div class="metric-label">公网 MCP 连接</div><div class="metric-value">{{ configured ? "已配置" : "未配置" }}</div><div class="metric-detail">{{ connectionDetail }}</div></el-card>
             <el-card class="metric-card" shadow="never"><div class="metric-label">项目</div><div class="metric-value">{{ activeProjects.length }}</div><div class="metric-detail">{{ projects.length - activeProjects.length }} 个已停用</div></el-card>
             <el-card class="metric-card" shadow="never"><div class="metric-label">会话绑定</div><div class="metric-value">{{ conversationCount }}</div><div class="metric-detail">当前项目选择记录</div></el-card>
         </div>
@@ -64,12 +64,12 @@ async function copyUrl(): Promise<void> {
                     <div><h2>开始使用</h2><p>按当前状态只显示下一步最有用的操作。</p></div>
                 </div>
                 <div v-if="!activeProjects.length" class="inline-actions"><el-button type="primary" :icon="FolderAdd" @click="emit('add')">添加项目</el-button><span class="muted small">项目注册不会启动 MCP 服务。</span></div>
-                <div v-else-if="!running && !configured" class="inline-actions"><el-button type="primary" :icon="Link" @click="emit('navigate', 'connect')">配置 ChatGPT 连接</el-button><el-button :icon="VideoPlay" :loading="busy" @click="emit('start', 'local')">仅本机启动</el-button></div>
+                <div v-else-if="!running && !configured" class="inline-actions"><el-button type="primary" :icon="Link" @click="emit('navigate', 'connect')">配置公网 MCP 连接</el-button><el-button :icon="VideoPlay" :loading="busy" @click="emit('start', 'local')">仅本机启动</el-button></div>
                 <div v-else-if="!running" class="inline-actions"><el-button type="primary" :icon="VideoPlay" :loading="busy" @click="emit('start', 'public')">启动公网服务</el-button><el-button :loading="busy" @click="emit('start', 'local')">仅本机启动</el-button><span class="muted small">当前默认：{{ preferredMode === 'public' ? '公网' : '本机' }}</span></div>
-                <div v-else class="inline-actions"><el-button v-if="liveMode === 'local' && !configured" type="primary" :icon="Link" @click="emit('navigate', 'connect')">配置 ChatGPT 连接</el-button><el-button v-else-if="liveMode === 'local' && configured" type="primary" :loading="busy" @click="emit('start', 'public')">切换到公网</el-button><el-button v-else-if="liveMode === 'public'" :loading="busy" @click="emit('start', 'local')">切换到本机</el-button><el-button v-if="liveMode === 'public'" type="primary" :icon="Refresh" :loading="busy" @click="emit('check')">检查连接</el-button><el-button :icon="Tools" @click="emit('repair')">检查并修复</el-button><el-button text type="danger" :icon="VideoPause" :disabled="busy" @click="emit('stop')">停止服务</el-button></div>
+                <div v-else class="inline-actions"><el-button v-if="liveMode === 'local' && !configured" type="primary" :icon="Link" @click="emit('navigate', 'connect')">配置公网 MCP 连接</el-button><el-button v-else-if="liveMode === 'local' && configured" type="primary" :loading="busy" @click="emit('start', 'public')">切换到公网</el-button><el-button v-else-if="liveMode === 'public'" :loading="busy" @click="emit('start', 'local')">切换到本机</el-button><el-button v-if="liveMode === 'public'" type="primary" :icon="Refresh" :loading="busy" @click="emit('check')">检查连接</el-button><el-button :icon="Tools" @click="emit('repair')">检查并修复</el-button><el-button text type="danger" :icon="VideoPause" :disabled="busy" @click="emit('stop')">停止服务</el-button></div>
 
                 <div style="margin-top: 22px">
-                    <div class="status-line"><span class="status-label">ChatGPT 地址</span><div class="inline-actions" style="justify-content: flex-end"><code class="small break-all">{{ publicUrl || "尚未配置" }}</code><el-button v-if="publicUrl" text :icon="CopyDocument" @click="copyUrl" /></div></div>
+                    <div class="status-line"><span class="status-label">公网 MCP 地址</span><div class="inline-actions" style="justify-content: flex-end"><code class="small break-all">{{ publicUrl || "尚未配置" }}</code><el-button v-if="publicUrl" text :icon="CopyDocument" @click="copyUrl" /></div></div>
                     <div class="status-line"><span class="status-label">当前项目</span><div class="inline-actions" style="justify-content: flex-end"><el-tag v-for="project in activeProjects.slice(0, 5)" :key="project.id" effect="plain" @click="emit('navigate', 'projects')">{{ project.name }}</el-tag><el-button v-if="activeProjects.length > 5" text @click="emit('navigate', 'projects')">+{{ activeProjects.length - 5 }}</el-button></div></div>
                 </div>
             </el-card>

@@ -35,7 +35,7 @@ export async function runBindingsCommand(flags: CliFlags): Promise<void> {
     const current = await listProjectConversations(target);
     if (!current.project) throw new Error(`没有找到项目：${target}`);
 
-    printIntro("codex-mcp bindings clean");
+    printIntro("aimcp bindings clean");
     if (current.conversations.length === 0) {
         printInfo(`项目 ${current.project.name} 当前没有会话绑定。`);
         printOutro("无需清理");
@@ -84,7 +84,7 @@ async function runProjectAction(flags: CliFlags): Promise<void> {
     if (action === "info") {
         const project = await getProject(target);
         if (!project) throw new Error(flags.target ? `没有找到项目：${flags.target}` : "当前目录没有注册为项目");
-        printIntro("codex-mcp project info");
+        printIntro("aimcp project info");
         printSummary("项目", [
             { label: "名称", value: project.name },
             { label: "ID", value: project.id },
@@ -118,9 +118,9 @@ function formatBindingTime(value: string): string {
 }
 
 function printProjectList(projects: Array<RegisteredProject & { boundSessions?: number | null }>): void {
-    printIntro("codex-mcp project list");
+    printIntro("aimcp project list");
     if (projects.length === 0) {
-        printInfo("还没有注册项目。运行 `codex-mcp project add [目录]` 添加。");
+        printInfo("还没有注册项目。运行 `aimcp project add [目录]` 添加。");
         printOutro("项目列表");
         return;
     }

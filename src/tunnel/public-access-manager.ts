@@ -112,7 +112,7 @@ export async function configurePreparedPublicAccess(
                 } catch (restartError) {
                     throw new Error(
                         `公网配置已经提交并验证成功，但后台服务恢复失败：${readableError(restartError)}。` +
-                        "请运行 `codex-mcp status` 和 `codex-mcp doctor` 检查，然后运行 `codex-mcp start` 重新启动。",
+                        "请运行 `aimcp status` 和 `aimcp doctor` 检查，然后运行 `aimcp start` 重新启动。",
                     );
                 }
             }

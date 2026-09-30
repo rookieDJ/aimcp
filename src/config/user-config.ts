@@ -216,7 +216,7 @@ function normalizeUserConfig(raw: Record<string, unknown>): UserConfig {
     const unknownKeys = Object.keys(raw).filter((key) => !supportedKeys.has(key));
     if (unknownKeys.length > 0) {
         throw new Error(
-            `配置包含 1.0 不支持的字段：${unknownKeys.join(", ")}；请重新运行 codex-mcp setup`,
+            `配置包含 1.0 不支持的字段：${unknownKeys.join(", ")}；请重新运行 aimcp setup`,
         );
     }
     const config: UserConfig = {};
