@@ -1,43 +1,19 @@
 import { spawn } from "node:child_process";
-import { access } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { printInfo } from "../lib/util/terminal.js";
 import { terminateChildProcess } from "../lib/process/tree.js";
 
-export interface UpdateInstallerInvocation {
+export interface UpdateNpmInvocation {
     file: string;
     args: string[];
-    scriptPath: string;
 }
 
-export function getUpdateInstallerInvocation(
+export function getUpdateNpmInvocation(
     platform: NodeJS.Platform = process.platform,
-): UpdateInstallerInvocation {
-    if (platform === "win32") {
-        const scriptPath = fileURLToPath(new URL("../../scripts/install.ps1", import.meta.url));
-        return {
-            file: "powershell.exe",
-            args: [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                scriptPath,
-            ],
-            scriptPath,
-        };
-    }
-
-    if (platform === "darwin" || platform === "linux") {
-        const scriptPath = fileURLToPath(new URL("../../scripts/install.sh", import.meta.url));
-        return {
-            file: "sh",
-            args: [scriptPath],
-            scriptPath,
-        };
-    }
-
-    throw new Error(`当前系统暂不支持自动更新：${platform}`);
+): UpdateNpmInvocation {
+    return {
+        file: platform === "win32" ? "npm.cmd" : "npm",
+        args: ["install", "--global", "@rookiedj/aimcp@latest"],
+    };
 }
 
 export interface SelfUpdateOptions {
@@ -46,24 +22,16 @@ export interface SelfUpdateOptions {
 }
 
 export async function runSelfUpdate(options: SelfUpdateOptions = {}): Promise<void> {
-    const invocation = getUpdateInstallerInvocation();
-    try {
-        await access(invocation.scriptPath);
-    } catch {
-        throw new Error(
-            "当前安装缺少更新组件。请重新运行一次安装脚本，之后即可使用 `aimcp update`。",
-        );
-    }
-
+    const invocation = getUpdateNpmInvocation();
     options.signal?.throwIfAborted();
-    printInfo("正在检查并安装最新版 aimcp…");
-    const exitCode = await runInstaller(invocation, options);
+    printInfo("正在通过 npm 检查并安装最新版 aimcp…");
+    const exitCode = await runNpm(invocation, options);
     if (exitCode !== 0) {
         throw new Error(`更新没有完成（退出码 ${exitCode}）`);
     }
 }
 
-async function runInstaller(invocation: UpdateInstallerInvocation, options: SelfUpdateOptions): Promise<number> {
+async function runNpm(invocation: UpdateNpmInvocation, options: SelfUpdateOptions): Promise<number> {
     return await new Promise<number>((resolve, reject) => {
         const captureOutput = options.onOutput !== undefined;
         const child = spawn(invocation.file, invocation.args, {
@@ -74,7 +42,7 @@ async function runInstaller(invocation: UpdateInstallerInvocation, options: Self
             },
             stdio: captureOutput ? ["ignore", "pipe", "pipe"] : "inherit",
             windowsHide: false,
-            shell: false,
+            shell: process.platform === "win32",
         });
         let settled = false;
         const finishReject = (error: unknown): void => {

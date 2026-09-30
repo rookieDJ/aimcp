@@ -86,27 +86,21 @@ aimcp 可以自动创建和管理 Cloudflare Tunnel。
 
 ## 1. 安装
 
-在本项目根目录执行以下命令，将当前源码安装为全局 `aimcp` 命令：
+安装全局 `aimcp` 命令：
 
 ```bash
-npm install
-npm run build
-npm link
+npm install --global @rookiedj/aimcp
 ```
 
-不想注册全局命令时，可在项目根目录直接本地启动：
-
-```bash
-npm run start:local
-```
-
-安装完成后，如果终端提示找不到 `aimcp`，关闭终端并重新打开一次。
-
-检查版本：
+检查安装：
 
 ```bash
 aimcp --version
 ```
+
+如果终端提示找不到 `aimcp`，请确认 npm 的全局可执行目录在 `PATH` 中；可用 `npm config get prefix` 查看全局安装前缀，然后重新打开终端。
+
+从源码运行时，在仓库根目录执行 `npm install`、`npm run build`，再运行 `npm run start:local`。
 
 ---
 
@@ -856,7 +850,7 @@ aimcp stop
 aimcp setup
 ```
 
-请保留安装目录 `~/.codex-mcp/npm`、托管组件、连接密码和 Cloudflare 凭据。重新 setup 会选择新的已提交配置；旧 OAuth 会话与项目绑定不会恢复，项目需要重新注册。不要删除整个 `~/.codex-mcp`，否则脚本安装的 CLI 也会被删除。
+请保留托管组件、连接密码和 Cloudflare 凭据。重新 setup 会选择新的已提交配置；旧 OAuth 会话与项目绑定不会恢复，项目需要重新注册。不要删除整个 `~/.codex-mcp`，其中保存 aimcp 的本机配置和连接数据。
 
 旧的 `tunnel`、`exit` 和 `serve --foreground` 入口已删除；分别使用 `setup`、`stop` / `project remove` 和后台 `start`。
 

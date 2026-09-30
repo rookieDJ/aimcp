@@ -73,17 +73,23 @@ function buildTarball() {
 const tarball = process.argv[2] ? resolve(process.argv[2]) : buildTarball();
 if (!existsSync(tarball)) throw new Error(`package tarball does not exist: ${tarball}`);
 
-run(npm, ["install", "--prefix", installRoot, tarball, "--omit=dev", "--registry=https://registry.npmjs.org"]);
-const cli = join(installRoot, "node_modules", ...packageMetadata.name.split("/"), "dist", "cli.js");
-const binShim = join(installRoot, "node_modules", ".bin", process.platform === "win32" ? "aimcp.cmd" : "aimcp");
+run(npm, ["install", "--global", "--prefix", installRoot, tarball, "--omit=dev", "--registry=https://registry.npmjs.org"]);
+const globalModules = process.platform === "win32"
+    ? join(installRoot, "node_modules")
+    : join(installRoot, "lib", "node_modules");
+const cli = join(globalModules, ...packageMetadata.name.split("/"), "dist", "cli.js");
+const binShim = process.platform === "win32"
+    ? join(installRoot, "aimcp.cmd")
+    : join(installRoot, "bin", "aimcp");
+assert.equal(existsSync(cli), true, `packaged CLI is missing: ${cli}`);
 assert.equal(existsSync(binShim), true, `npm bin shim is missing: ${binShim}`);
-assert.equal(run(process.execPath, [cli, "--version"], { cwd: project }).trim(), packageVersion);
+assert.equal(run(binShim, ["--version"], { cwd: project }).trim(), packageVersion);
 
 let started = false;
 try {
-    run(process.execPath, [cli, "start", "--local"], { cwd: project });
+    run(binShim, ["start", "--local"], { cwd: project });
     started = true;
-    const status = JSON.parse(run(process.execPath, [cli, "status", "--json"], { cwd: project }));
+    const status = JSON.parse(run(binShim, ["status", "--json"], { cwd: project }));
     assert.equal(status.running, true);
     assert.equal(status.daemon.mode, "local");
     assert.equal(status.daemon.controlApiVersion, 1);
@@ -91,9 +97,9 @@ try {
     assert.match(status.controller.panelUrl, /^http:\/\/127\.0\.0\.1:\d+\/$/);
     assert.equal(status.projects.length, 1);
     assert.equal(status.projects[0].active, true);
-    run(process.execPath, [cli, "stop"], { cwd: project });
+    run(binShim, ["stop"], { cwd: project });
     started = false;
-    const stopped = JSON.parse(run(process.execPath, [cli, "status", "--json"], { cwd: project }));
+    const stopped = JSON.parse(run(binShim, ["status", "--json"], { cwd: project }));
     assert.equal(stopped.running, false);
     assert.equal(existsSync(join(home, ".codex-mcp", "daemon.json")), false);
     assert.equal(stopped.controller.pid, status.controller.pid);
@@ -121,7 +127,7 @@ try {
     process.stdout.write(`package_smoke=PASS version=${packageVersion}\n`);
 } finally {
     if (started) {
-        try { run(process.execPath, [cli, "stop"], { cwd: project, timeout: 30_000 }); }
+        try { run(binShim, ["stop"], { cwd: project, timeout: 30_000 }); }
         catch { /* best-effort cleanup for a failed smoke */ }
     }
     const controllerStatePath = join(home, ".codex-mcp", "controller.json");

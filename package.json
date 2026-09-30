@@ -2,6 +2,7 @@
     "name": "@rookiedj/aimcp",
     "displayName": "aimcp",
     "author": "rookieDJ",
+    "preferGlobal": true,
     "version": "1.2.0",
     "description": "Local coding MCP server for ChatGPT, Gemini CLI, and other MCP clients with OAuth and Streamable HTTP.",
     "type": "module",

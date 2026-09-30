@@ -816,14 +816,27 @@ test("interactive commands fail clearly without a terminal; internal daemon entr
 });
 
 
-test("update reports local installer failure and preserves existing configuration", () => {
-    const home = mkdtempSync(join(tmpdir(), "codex-mcp-update-"));
+test("update uses the published global npm package and preserves existing configuration", () => {
+    const home = mkdtempSync(join(tmpdir(), "aimcp-update-"));
     mkdirSync(join(home, ".codex-mcp"), { recursive: true });
+    const fakeBin = join(home, "fake-bin");
+    mkdirSync(fakeBin, { recursive: true });
+    const fakeNpm = join(fakeBin, process.platform === "win32" ? "npm.cmd" : "npm");
+    writeFileSync(
+        fakeNpm,
+        process.platform === "win32"
+            ? "@echo off\r\necho %*\r\nexit /b 23\r\n"
+            : "#!/bin/sh\nprintf '%s\\n' \"$*\"\nexit 23\n",
+        { mode: 0o755 },
+    );
     const config = join(home, ".codex-mcp", "config.json");
     const original = JSON.stringify({ port: 4321 });
     writeFileSync(config, original);
-    const result = run(["update"], home, home, { CODEX_MCP_PACKAGE: join(home, "missing-release.tgz"), npm_config_offline: "true" });
+    const result = run(["update"], home, home, {
+        PATH: `${fakeBin}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
+    });
     assert.notEqual(result.code, 0);
     assert.match(result.output, /更新没有完成/);
+    assert.match(result.output, /install --global @rookiedj\/aimcp@latest/);
     assert.equal(readFileSync(config, "utf8"), original);
 });
