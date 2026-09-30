@@ -1,4 +1,4 @@
-# codex-mcp
+# aimcp
 
 让 Gemini CLI 或 ChatGPT 通过 MCP 操作你电脑上的代码项目。
 
@@ -11,17 +11,17 @@
 - “把这个功能实现完”
 - “切到另一个项目继续”
 
-codex-mcp 会在你的电脑上读取文件、修改代码、执行命令、查看 Git，并把结果返回给 MCP 客户端。
+aimcp 会在你的电脑上读取文件、修改代码、执行命令、查看 Git，并把结果返回给 MCP 客户端。
 
 为了减少模型选择工具时的歧义，多项目 daemon 只公开 15 个顶层工具：`project_control` 加上 `read`、`read_image`、`apply_patch`、`ls`、`grep`、`glob`、`code_explore`、`exec_command`、`write_stdin`、`skills_list`、`skill_read`、`mcp_tools`、`mcp_call`、`summary`。Git 和包管理等操作统一通过 `exec_command` 完成。
 
-> codex-mcp 面向个人开发环境使用。它拥有很强的本机操作能力，请只连接你信任的 MCP 客户端和项目。
+> aimcp 面向个人开发环境使用。它拥有很强的本机操作能力，请只连接你信任的 MCP 客户端和项目。
 
 ---
 
 ## 它是怎么工作的？
 
-codex-mcp 把本机控制面和真正处理 MCP 请求的 Runtime 分开：
+aimcp 把本机控制面和真正处理 MCP 请求的 Runtime 分开：
 
 ```text
 Web Console / CLI
@@ -59,26 +59,26 @@ Controller 只监听本机，负责管理状态；Runtime 可以启动或停止�
 
 ### 如果要从 ChatGPT 连接
 
-你需要一个可以通过 HTTPS 访问到本机 codex-mcp 的公网地址。
+你需要一个可以通过 HTTPS 访问到本机 aimcp 的公网地址。
 
 最简单的方式是：
 
 - 一个 **Cloudflare 账号**
 - 一个已经接入 Cloudflare 的 **域名**
 
-codex-mcp 可以自动创建和管理 Cloudflare Tunnel。
+aimcp 可以自动创建和管理 Cloudflare Tunnel。
 
-如果你已经有自己的反向代理、服务器或其他 HTTPS 入口，也可以不让 codex-mcp 管理 Cloudflare。
+如果你已经有自己的反向代理、服务器或其他 HTTPS 入口，也可以不让 aimcp 管理 Cloudflare。
 
 ### 可选
 
-如果电脑上已经安装了这些工具，codex-mcp 还可以读取它们已有的能力：
+如果电脑上已经安装了这些工具，aimcp 还可以读取它们已有的能力：
 
 - Codex
 - Claude Code
 - Agent Skills
 
-没有这些也不影响 codex-mcp 的核心功能。
+没有这些也不影响 aimcp 的核心功能。
 
 ---
 
@@ -137,7 +137,7 @@ aimcp start
 
 ### 公网连接
 
-默认情况下，codex-mcp 会询问是否自动配置 Cloudflare Tunnel。
+默认情况下，aimcp 会询问是否自动配置 Cloudflare Tunnel。
 
 选择自动配置后，它会：
 
@@ -155,7 +155,7 @@ aimcp start
 例如最终得到：
 
 ```text
-https://codex-mcp.example.com/mcp
+https://aimcp.example.com/mcp
 ```
 
 如果你的 Cloudflare 账号里没有已经接入 Cloudflare 的域名，自动 Tunnel 模式无法完成配置。
@@ -164,7 +164,7 @@ https://codex-mcp.example.com/mcp
 
 ### 使用自己的 HTTPS 入口
 
-如果你不想让 codex-mcp 管理 Cloudflare，可以在 setup 中选择自己提供公网入口，然后填写你的域名。
+如果你不想让 aimcp 管理 Cloudflare，可以在 setup 中选择自己提供公网入口，然后填写你的域名。
 
 此时需要你自己保证：
 
@@ -172,11 +172,11 @@ https://codex-mcp.example.com/mcp
 https://你的域名/mcp
 ```
 
-能够安全地转发到本机 codex-mcp 服务。
+能够安全地转发到本机 aimcp 服务。
 
 ### 连接密码
 
-公网验证完成后，codex-mcp 会先生成远程 MCP 连接密码。
+公网验证完成后，aimcp 会先生成远程 MCP 连接密码。
 
 **请保存这个密码。**
 
@@ -202,7 +202,7 @@ aimcp auth
 - 自定义启用哪些 MCP / Skills
 - 全部关闭
 
-默认推荐自动同步。这样这些工具的配置发生变化后，codex-mcp 可以自动刷新。当前目录没有检测到某个能力源，不会再把用户之前为其它项目启用的同类能力全局关闭；取消这一步也不会破坏已经完成的公网连接和连接密码。
+默认推荐自动同步。这样这些工具的配置发生变化后，aimcp 可以自动刷新。当前目录没有检测到某个能力源，不会再把用户之前为其它项目启用的同类能力全局关闭；取消这一步也不会破坏已经完成的公网连接和连接密码。
 
 ---
 
@@ -255,7 +255,7 @@ ChatGPT 的 MCP App 入口和可用套餐可能会变化，请以你当前账号
 
 1. 在 ChatGPT 中启用 **Developer Mode**
 2. 打开 **Apps → Create**
-3. 填入 codex-mcp 的 MCP 地址
+3. 填入 aimcp 的 MCP 地址
 4. 扫描工具（Scan Tools）
 5. 按提示完成 OAuth / 密码验证
 6. 创建并启用这个 App
@@ -263,7 +263,7 @@ ChatGPT 的 MCP App 入口和可用套餐可能会变化，请以你当前账号
 MCP 地址就是 setup 最后显示的公网地址，例如：
 
 ```text
-https://codex-mcp.example.com/mcp
+https://aimcp.example.com/mcp
 ```
 
 授权时使用 `aimcp setup` 生成的连接密码。
@@ -329,7 +329,7 @@ cd ~/code/mobile
 aimcp start
 ```
 
-它们会全部注册到同一个 codex-mcp 后台服务。
+它们会全部注册到同一个 aimcp 后台服务。
 
 不会创建三个端口，也不会创建三个 Tunnel。
 
@@ -415,7 +415,7 @@ aimcp restart
 
 `stop` 只关闭 MCP Runtime、项目运行态和 Cloudflare Tunnel，**Controller / Web Console 继续运行**，项目注册状态也会保留。`restart` 只重启当前 Runtime，并保持当前运行模式。
 
-如果要把 codex-mcp 的 Controller 和 Runtime 都完全关闭：
+如果要把 aimcp 的 Controller 和 Runtime 都完全关闭：
 
 ```bash
 aimcp shutdown
@@ -425,7 +425,7 @@ aimcp shutdown
 
 # MCP 客户端可以做什么？
 
-连接项目以后，MCP 客户端可以通过 codex-mcp：
+连接项目以后，MCP 客户端可以通过 aimcp：
 
 ### 读取和搜索代码
 
@@ -508,7 +508,7 @@ aimcp project add /path/to/other-project
 
 # 使用 Codex、Claude Code 和 Skills
 
-codex-mcp 可以直接读取已有 AI 开发工具的配置，而不是复制一份。
+aimcp 可以直接读取已有 AI 开发工具的配置，而不是复制一份。
 
 支持：
 
@@ -545,7 +545,7 @@ aimcp setup
 支持两种同步方式：
 
 - `watch`：配置发生变化后自动刷新，推荐
-- `startup`：只在 codex-mcp 启动时读取一次
+- `startup`：只在 aimcp 启动时读取一次
 
 ---
 
@@ -612,7 +612,7 @@ aimcp setup
 
 # 配置保存在哪里？
 
-codex-mcp 的用户数据默认保存在：
+aimcp 的用户数据默认保存在：
 
 ```text
 ~/.codex-mcp/
@@ -637,7 +637,7 @@ codex-mcp 的用户数据默认保存在：
 - `projects.json`：注册过的项目
 - `session-bindings.json`：MCP 会话和项目的绑定关系
 
-Cloudflare 的登录和 Tunnel 凭据由 codex-mcp 放在自己的配置目录中管理，不依赖系统级 `~/.cloudflared` 作为长期运行状态。
+Cloudflare 的登录和 Tunnel 凭据由 aimcp 放在自己的配置目录中管理，不依赖系统级 `~/.cloudflared` 作为长期运行状态。
 
 ---
 
@@ -687,7 +687,7 @@ aimcp doctor
 - Node.js 版本
 - Git
 - 文件搜索组件
-- codex-mcp 配置
+- aimcp 配置
 - 连接密码
 - 公网地址
 - cloudflared
@@ -768,7 +768,7 @@ aimcp setup
 重新登录 / 切换 Cloudflare 账号
 ```
 
-codex-mcp 会在临时目录完成新登录并验证凭据，然后才替换自己管理的登录；取消或登录失败时旧凭据保持不变。它不会修改系统级 `~/.cloudflared`。
+aimcp 会在临时目录完成新登录并验证凭据，然后才替换自己管理的登录；取消或登录失败时旧凭据保持不变。它不会修改系统级 `~/.cloudflared`。
 
 ---
 
@@ -780,7 +780,7 @@ codex-mcp 会在临时目录完成新登录并验证凭据，然后才替换自�
 aimcp setup
 ```
 
-codex-mcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配。
+aimcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配。
 
 如果发现同名 Tunnel 但本机没有可用凭据，不会删除远端 Tunnel，而是创建带唯一后缀的 candidate。只有本次新建、配置尚未提交且没有被 DNS 引用的 candidate 才会自动清理。
 
@@ -808,7 +808,7 @@ codex-mcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配
 
 ---
 
-## 我需要每个项目启动一个 codex-mcp 吗？
+## 我需要每个项目启动一个 aimcp 吗？
 
 不需要。
 
@@ -824,7 +824,7 @@ aimcp start
 
 ---
 
-## 关闭终端以后 codex-mcp 会停吗？
+## 关闭终端以后 aimcp 会停吗？
 
 默认不会。
 
@@ -894,11 +894,11 @@ npm unlink -g @meesii/codex-mcp
 
 # 安全说明
 
-codex-mcp 的目标不是做一个强隔离沙箱，而是让受信任的 MCP 客户端可以在个人开发环境中完成开发工作。
+aimcp 的目标不是做一个强隔离沙箱，而是让受信任的 MCP 客户端可以在个人开发环境中完成开发工作。
 
 因此请注意：
 
-1. **不要把自己的 codex-mcp 实例分享给其他人。**
+1. **不要把自己的 aimcp 实例分享给其他人。**
 2. **不要把连接密码公开。**
 3. **只注册你信任的项目目录。**
 4. **执行 shell 命令时，命令仍拥有当前系统用户本身的权限。**
