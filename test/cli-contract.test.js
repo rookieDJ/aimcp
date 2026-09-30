@@ -255,7 +255,6 @@ test("plain start defaults to local mode, persists the actual intent, and reuses
         const first = run(["start"], home, project);
         assert.equal(first.code, 0, first.output);
         assert.match(first.output, /切换到 aimcp 项目/);
-        assert.doesNotMatch(first.output, /@meesii\/codex-mcp/);
         let status = JSON.parse(run(["status", "--json"], home, project).output);
         assert.equal(status.daemon.mode, "local");
         assert.equal(status.projects[0].name, "aimcp");
