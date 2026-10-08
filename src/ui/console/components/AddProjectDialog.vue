@@ -39,7 +39,7 @@ async function choose(): Promise<void> {
         if (result.path) path.value = result.path;
         if (result.unavailable) {
             manual.value = true;
-            error.value = "无法打开系统选择窗口，请选择推荐项目或手动输入完整路径。";
+            error.value = "无法直接调用系统目录选择窗口，请在下方选择自动发现的项目或手动输入项目完整路径。";
         }
     } catch (reason) {
         if (!controller.signal.aborted) error.value = friendlyError(reason);
@@ -58,28 +58,82 @@ function close(): void {
 </script>
 
 <template>
-    <el-dialog :model-value="modelValue" class="console-dialog add-project-dialog" title="添加项目" width="min(560px, 92vw)" :close-on-click-modal="!busy" @close="close">
-        <p class="muted" style="margin-top: -8px">选择这台电脑上的项目文件夹，连接到 aimcp 的客户端就可以在其中工作。</p>
-        <el-button class="break-all" style="width: 100%; height: auto; min-height: 64px; margin-top: 16px" :loading="picking" :disabled="busy" @click="choose">
-            <el-icon><FolderOpened /></el-icon>
-            {{ picking ? "请在系统窗口中选择文件夹" : "打开系统文件夹选择器" }}
+    <el-dialog
+        :model-value="modelValue"
+        class="console-dialog add-project-dialog"
+        title="登记代码项目目录"
+        width="min(560px, 92vw)"
+        :close-on-click-modal="!busy"
+        @close="close"
+    >
+        <div class="dialog-intro muted">
+            选择本机需要交给 MCP 客户端访问的代码仓库文件夹。添加后客户端可在对话中绑定并操作该项目。
+        </div>
+
+        <el-button class="folder-picker-box" :class="{ 'is-picking': picking }" :disabled="picking || busy" @click="choose">
+            <div class="folder-picker-icon">
+                <el-icon :size="24"><FolderOpened /></el-icon>
+            </div>
+            <div class="folder-picker-copy">
+                <strong>{{ picking ? "正在等待在系统选择窗口中确认…" : "点击唤起系统文件夹选择器" }}</strong>
+                <span>支持任意本地 Git 项目、Node、Python 或通用代码目录</span>
+            </div>
         </el-button>
-        <el-alert v-if="path" style="margin-top: 14px" type="success" :closable="false"><template #title>已选择：{{ path }}</template></el-alert>
-        <div v-if="suggestions.length" style="margin-top: 18px">
-            <div class="muted small" style="margin-bottom: 6px">最近或自动发现的项目</div>
-            <el-scrollbar max-height="190px">
-                <div v-for="item in suggestions" :key="item.path" class="status-line" style="cursor: pointer" @click="path = item.path; error = ''">
-                    <div class="inline-actions" style="min-width: 0"><el-icon><Folder /></el-icon><div style="min-width: 0"><div>{{ item.name }}</div><div class="muted small break-all">{{ item.path }}</div></div></div>
-                    <el-icon v-if="path === item.path" color="var(--el-color-success)"><Select /></el-icon>
+
+        <div v-if="path" class="selected-path-box">
+            <span class="selected-path-label">已选择有效目录：</span>
+            <code class="selected-path-code">{{ path }}</code>
+        </div>
+
+        <div v-if="suggestions.length" class="suggestions-section">
+            <div class="suggestions-header">
+                <span class="suggestions-title">最近或自动发现的项目</span>
+            </div>
+            <el-scrollbar max-height="180px" class="suggestions-scrollbar">
+                <div
+                    v-for="item in suggestions"
+                    :key="item.path"
+                    class="suggestion-row"
+                    :class="{ 'is-selected': path === item.path }"
+                    @click="path = item.path; error = ''"
+                >
+                    <div class="suggestion-info">
+                        <el-icon class="suggestion-icon"><Folder /></el-icon>
+                        <div class="suggestion-texts">
+                            <span class="suggestion-name">{{ item.name }}</span>
+                            <code class="suggestion-path">{{ item.path }}</code>
+                        </div>
+                    </div>
+                    <el-icon v-if="path === item.path" class="suggestion-check"><Select /></el-icon>
                 </div>
             </el-scrollbar>
         </div>
-        <el-button text type="primary" style="margin-top: 12px" @click="manual = !manual">{{ manual ? "隐藏手动输入" : "手动输入路径" }}</el-button>
-        <el-input v-if="manual" v-model="path" placeholder="项目文件夹完整路径" />
-        <el-alert v-if="error" style="margin-top: 12px" type="warning" :closable="false" :title="error" />
+
+        <div class="manual-input-toggle">
+            <el-button text type="primary" size="small" @click="manual = !manual">
+                {{ manual ? "隐藏手动输入路径" : "手动输入项目绝对路径" }}
+            </el-button>
+        </div>
+
+        <el-input
+            v-if="manual"
+            v-model="path"
+            placeholder="/Users/username/Projects/my-app"
+            class="manual-path-input"
+        />
+
+        <el-alert v-if="error" class="dialog-error-alert" type="warning" :closable="false" :title="error" />
+
         <template #footer>
             <el-button :disabled="busy" @click="close">取消</el-button>
-            <el-button type="primary" :loading="busy" :disabled="!path.trim() || picking" @click="add">添加项目</el-button>
+            <el-button
+                type="primary"
+                :loading="busy"
+                :disabled="!path.trim() || picking"
+                @click="add"
+            >
+                完成登记
+            </el-button>
         </template>
     </el-dialog>
 </template>

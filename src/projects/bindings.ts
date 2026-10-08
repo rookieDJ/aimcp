@@ -5,6 +5,12 @@ import {
 } from "../daemon/state.js";
 import { writeRuntimeLog } from "../lib/runtime-log.js";
 import { AsyncMutex } from "../lib/util/mutex.js";
+import { createHash } from "node:crypto";
+
+/** Routing handle, not an authentication credential. Does not reveal client/conversation IDs. */
+export function projectSessionHandle(ownerKey: string): string {
+    return createHash("sha256").update(ownerKey).digest("hex");
+}
 
 const DEFAULT_BINDING_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1_000;
 const BINDING_TOUCH_INTERVAL_MS = 10 * 60 * 1_000;
@@ -13,7 +19,10 @@ const BINDING_TOUCH_INTERVAL_MS = 10 * 60 * 1_000;
  * Durable map from conversation owner key to bound project id.
  *
  * Owner keys reuse the permission/process namespace: `<oauth/local owner>|openai-session:<id>`,
- * then `<oauth/local owner>|mcp-session:<id>`, then the OAuth/local fallback id.
+ * then `<oauth/local owner>|mcp-session:<id>`. Stateless clients without either
+ * identifier select a generated `<oauth/local owner>|project-session:<uuid>` owner.
+ * Explicit project_session handles resolve the original durable owner within
+ * the same authenticated namespace, even when request metadata changes.
  * The key is a routing correlation value, not an authorization secret; the
  * OAuth/password boundary still protects /mcp.
  */
@@ -35,14 +44,27 @@ export class BindingStore {
         return binding ? { ...binding } : undefined;
     }
 
+    /** Never resolve a handle across OAuth clients, even if the caller knows it. */
+    resolveProjectSession(fallbackOwnerId: string, handle: string): SessionBinding | undefined {
+        const binding = this.bindings.find((item) =>
+            (item.ownerKey === fallbackOwnerId || item.ownerKey.startsWith(`${fallbackOwnerId}|`)) &&
+            projectSessionHandle(item.ownerKey) === handle,
+        );
+        return binding ? { ...binding } : undefined;
+    }
+
     /** Bind (or rebind) an owner key to a project. Never stores tool/command data. */
-    async bind(ownerKey: string, projectId: string): Promise<SessionBinding> {
+    async bind(ownerKey: string, projectId: string, client?: SessionBinding["client"]): Promise<SessionBinding> {
         return await this.mutex.runExclusive(async () => {
             const now = new Date().toISOString();
             const existing = this.resolve(ownerKey);
+            if (existing?.client && existing.client !== "other" && client && existing.client !== client) {
+                throw new Error("此会话已属于其他客户端，请勿复用 project_session。");
+            }
             const updated: SessionBinding = existing
                 ? { ...existing, projectId, boundAt: now, lastSeenAt: now }
                 : { ownerKey, projectId, boundAt: now, lastSeenAt: now };
+            if (client !== undefined) updated.client = client;
             const nextBindings = [
                 ...this.bindings.filter((item) => item.ownerKey !== ownerKey),
                 updated,

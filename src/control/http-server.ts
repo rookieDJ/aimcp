@@ -16,6 +16,10 @@ import {
     getProject,
     getSetupSummary,
     listProjectConversations,
+    getConversationHistory,
+    getConversationTranscript,
+    deleteConversationHistory,
+    setConversationRecording,
     listProjects,
     readLogs,
     removeProject,
@@ -146,7 +150,8 @@ export function createControllerHttpServer(options: ControllerHttpServerOptions)
                 getConsoleSyncState(),
                 listProjectConversations(),
             ]);
-            res.json({ ok: true, status, setup, conversations: conversations.conversations });
+            const history = await getConversationHistory();
+            res.json({ ok: true, status, setup, conversations: conversations.conversations, conversationRecords: history.records, unavailableConversationRecords: history.unavailable });
         } catch (error) {
             sendError(res, error);
         }
@@ -188,6 +193,21 @@ export function createControllerHttpServer(options: ControllerHttpServerOptions)
     app.get("/api/project-conversations", async (_req, res) => {
         try { res.json(await listProjectConversations()); }
         catch (error) { sendError(res, error); }
+    });
+    app.put("/api/conversations/recording", (req, res) => {
+        try {
+            const enabled = asRecord(req.body).enabled;
+            if (typeof enabled !== "boolean") throw new Error("enabled must be a boolean");
+            res.json({ ok: true, ...setConversationRecording(enabled) });
+        } catch (error) { sendError(res, error, 400); }
+    });
+    app.get("/api/conversations/:id", (req, res) => {
+        try { res.json({ conversation: getConversationTranscript(req.params.id) }); }
+        catch (error) { sendError(res, error, 400); }
+    });
+    app.delete("/api/conversations/:id", async (req, res) => {
+        try { res.json({ ok: true, ...await deleteConversationHistory(req.params.id) }); }
+        catch (error) { sendError(res, error, 400); }
     });
     app.post("/api/project-folder", async (_req, res) => {
         const controller = new AbortController();
@@ -232,7 +252,10 @@ export function createControllerHttpServer(options: ControllerHttpServerOptions)
 
     app.delete("/api/projects/:target", async (req, res) => {
         try {
-            const result = await removeProject(req.params.target);
+            if (req.query.forget !== undefined && req.query.forget !== "true" && req.query.forget !== "false") {
+                throw new Error("forget must be true or false");
+            }
+            const result = await removeProject(req.params.target, { forget: req.query.forget === "true" });
             res.json({ ok: true, ...result, projects: await listProjects() });
         } catch (error) { sendError(res, error, 400); }
     });

@@ -59,29 +59,75 @@ function detected(id: string): boolean {
 </script>
 
 <template>
-    <div>
+    <div class="capabilities-panel">
         <div class="section-heading">
-            <div><div class="inline-actions"><h2>工具与技能</h2><el-tag v-if="dirty" type="warning" size="small" effect="plain">未保存</el-tag></div><p>按需读取本机已有的 Codex、Claude Code 和 Agent Skills 配置。</p></div>
-            <div class="inline-actions"><el-button v-if="dirty" text :disabled="busy" @click="resetDraft">放弃修改</el-button><el-button type="primary" :disabled="!capabilities || !dirty || busy" @click="save">保存设置</el-button></div>
+            <div>
+                <div class="inline-actions">
+                    <h2>外部能力与技能整合 (External Tools)</h2>
+                    <el-tag v-if="dirty" type="warning" size="small" effect="light" class="dirty-tag">
+                        有未保存修改
+                    </el-tag>
+                </div>
+                <p>实时读取本机已有的 Codex、Claude Code 以及 Agent Skills 配置文件，无需重复拷贝。</p>
+            </div>
+            <div class="inline-actions">
+                <el-button v-if="dirty" text :disabled="busy" @click="resetDraft">放弃修改</el-button>
+                <el-button type="primary" :disabled="!capabilities || !dirty || busy" @click="save">
+                    保存能力配置
+                </el-button>
+            </div>
         </div>
+
         <template v-if="capabilities">
-            <div class="capability-row">
-                <div class="capability-title">
-                    <div><strong>自动同步</strong><div class="muted small">来源配置变化后自动刷新，不需要重启 Runtime。</div></div>
+            <!-- Sync mode switch card -->
+            <div class="capability-card capability-card--sync">
+                <div class="capability-card-inner">
+                    <div class="capability-card-left">
+                        <div class="capability-card-title">
+                            <strong>实时文件变动监听 (Live Watch)</strong>
+                            <span class="capability-badge">AUTO SYNC</span>
+                        </div>
+                        <div class="capability-desc muted small">
+                            开启后，当外部开发工具的技能文件发生更新时将自动同步至 aimcp，无需重启 MCP 服务。
+                        </div>
+                    </div>
                     <el-switch :model-value="capabilities.sync === 'watch'" @change="updateSync(Boolean($event))" />
                 </div>
             </div>
-            <div v-for="id in ['agents', 'codex', 'claude']" :key="id" class="capability-row">
-                <div class="capability-title">
-                    <div>
-                        <div class="inline-actions"><strong>{{ id === 'agents' ? 'Agent Skills' : id === 'codex' ? 'Codex' : 'Claude Code' }}</strong><el-tag v-if="detected(id)" size="small" effect="plain">已检测到</el-tag></div>
-                        <div class="muted small">允许 aimcp 读取这个来源中的工具和技能。</div>
+
+            <!-- Provider Sources Bento Grid -->
+            <div class="capabilities-grid">
+                <div v-for="id in ['agents', 'codex', 'claude']" :key="id" class="capability-card capability-card--source">
+                    <div class="capability-card-inner">
+                        <div class="capability-card-left">
+                            <div class="capability-card-title">
+                                <strong>{{ id === 'agents' ? 'Agent Skills' : id === 'codex' ? 'Codex' : 'Claude Code' }}</strong>
+                                <el-tag v-if="detected(id)" size="small" effect="light" type="success" class="detected-tag">
+                                    ✓ 已在电脑中检测到
+                                </el-tag>
+                            </div>
+                            <div class="capability-desc muted small">
+                                允许 aimcp 读取 {{ id === 'agents' ? '~/.agents/skills' : id === 'codex' ? '~/.codex' : '~/.claude' }} 的能力。
+                            </div>
+                        </div>
+                        <el-switch :model-value="capabilities.sources[id]?.enabled ?? false" @change="updateSource(id, 'enabled', Boolean($event))" />
                     </div>
-                    <el-switch :model-value="capabilities.sources[id]?.enabled ?? false" @change="updateSource(id, 'enabled', Boolean($event))" />
-                </div>
-                <div v-if="capabilities.sources[id]?.enabled" class="capability-options">
-                    <el-checkbox v-if="id !== 'agents'" :model-value="capabilities.sources[id]?.mcp ?? false" @change="updateSource(id, 'mcp', Boolean($event))">读取 MCP 配置</el-checkbox>
-                    <el-checkbox :model-value="capabilities.sources[id]?.skills ?? false" @change="updateSource(id, 'skills', Boolean($event))">读取技能</el-checkbox>
+
+                    <div v-if="capabilities.sources[id]?.enabled" class="capability-sub-options">
+                        <el-checkbox
+                            v-if="id !== 'agents'"
+                            :model-value="capabilities.sources[id]?.mcp ?? false"
+                            @change="updateSource(id, 'mcp', Boolean($event))"
+                        >
+                            透传 MCP 工具
+                        </el-checkbox>
+                        <el-checkbox
+                            :model-value="capabilities.sources[id]?.skills ?? false"
+                            @change="updateSource(id, 'skills', Boolean($event))"
+                        >
+                            读取 Skills 技能包
+                        </el-checkbox>
+                    </div>
                 </div>
             </div>
         </template>

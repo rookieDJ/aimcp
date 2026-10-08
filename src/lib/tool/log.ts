@@ -3,16 +3,23 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { toolUiMeta } from "../../ui/register-ui.js";
 import { securitySchemesForServer } from "./meta.js";
-import { summarizeOutcome, summarizeToolCall } from "../../ui/tool-summary.js";
 import { buildUiCard } from "../../ui/ui-card.js";
-import { resultText } from "./result.js";
+import { errorResult, resultText } from "./result.js";
 import { runtimeTelemetry } from "../util/telemetry.js";
-import { writeRuntimeLog } from "../runtime-log.js";
+import { sanitizeRuntimeLogFields, writeRuntimeLog } from "../runtime-log.js";
 import { printCompactLog } from "../util/terminal.js";
-import { runWithToolInvocationContext } from "./context.js";
+import { runWithToolInvocationContext, setToolProjectOwner } from "./context.js";
 
 const TOOL_NAME_WIDTH = 18;
 const toolRegistrationPolicies = new WeakMap<McpServer, ReadonlySet<string>>();
+const projectSessionResolvers = new WeakMap<McpServer, (handle: string) => string | undefined>();
+
+export function configureToolProjectSessions(
+    server: McpServer,
+    resolve: (handle: string) => string | undefined,
+): void {
+    projectSessionResolvers.set(server, resolve);
+}
 
 export function isToolLogEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     const raw = env.CODING_MCP_LOG_TOOLS;
@@ -53,18 +60,6 @@ function padToolName(toolName: string): string {
 }
 
 /**
- * Build `title · outcome` detail suffix, skipping empties.
- *
- * @param title - Primary call summary
- * @param outcome - Result summary
- * @returns Detail text (may be empty)
- */
-function formatDetail(title?: string, outcome?: string): string {
-    const parts = [title, outcome].filter((part): part is string => Boolean(part));
-    return parts.join("  ·  ");
-}
-
-/**
  * Log a notable MCP lifecycle warning (routine initialize/session are silent).
  *
  * @param kind - Short event label, e.g. session_miss
@@ -73,7 +68,7 @@ function formatDetail(title?: string, outcome?: string): string {
 export function logMcpEvent(kind: string, details: Record<string, unknown> = {}): void {
     if (!isToolLogEnabled()) return;
 
-    const pairs = Object.entries(details)
+    const pairs = Object.entries(sanitizeRuntimeLogFields(primitiveLogFields(details)))
         .filter(([, value]) => value !== undefined && value !== null && value !== "")
         .map(([key, value]) => `${key}=${String(value)}`);
     const detail = pairs.join(" ");
@@ -88,14 +83,12 @@ export function logMcpEvent(kind: string, details: Record<string, unknown> = {})
  * Write one compact colored tool-call log line.
  *
  * @param toolName - Tool name
- * @param args - Tool arguments
- * @param result - Tool result or thrown error message
+ * @param result - Tool result or an error flag; payloads never enter logs
  * @param durationMs - Elapsed milliseconds
  */
 function logToolCall(
     toolName: string,
-    args: Record<string, unknown>,
-    result: CallToolResult | { thrown: string },
+    result: CallToolResult | { thrown: true },
     durationMs: number,
     invocationId: string,
 ): void {
@@ -104,47 +97,17 @@ function logToolCall(
     const time = timeLabel();
     const tool = padToolName(toolName);
     const ms = formatDuration(durationMs).padStart(5);
-    const call = summarizeToolCall(toolName, args);
-    const title =
-        call.title && call.title !== "—"
-            ? call.title
-            : undefined;
-
-    if ("thrown" in result) {
-        const detail = formatDetail(title, String(result.thrown));
-        printCompactLog(
-            "error",
-            `${time}  ${tool}  ${ms}  ${detail}`.trimEnd(),
-        );
-        writeRuntimeLog("error", "tool_call", {
-            invocationId,
-            tool: toolName,
-            durationMs,
-            ok: false,
-            failure: "handler_threw",
-        });
-        return;
-    }
-
-    const contentText = resultText(result);
-    const ok = !result.isError;
-    const structured =
-        result.structuredContent && typeof result.structuredContent === "object"
-            ? (result.structuredContent as Record<string, unknown>)
-            : null;
-    const outcome = summarizeOutcome(toolName, ok, structured, contentText);
-    const detail = formatDetail(title, outcome);
-
-    printCompactLog(
-        ok ? "success" : "warning",
-        `${time}  ${tool}  ${ms}  ${detail}`.trimEnd(),
-    );
-    writeRuntimeLog(ok ? "info" : "warn", "tool_call", {
+    const ok = !("thrown" in result) && !result.isError;
+    const outcome = "thrown" in result ? "执行异常" : ok ? "完成" : "失败";
+    // The terminal can be captured by another logger; never copy arguments,
+    // output or error text here. Rich summaries remain in the tool response.
+    printCompactLog("thrown" in result ? "error" : ok ? "success" : "warning", `${time}  ${tool}  ${ms}  ${outcome}`);
+    writeRuntimeLog("thrown" in result ? "error" : ok ? "info" : "warn", "tool_call", {
         invocationId,
         tool: toolName,
         durationMs,
         ok,
-        ...(ok ? {} : { failure: "tool_error" }),
+        ...(ok ? {} : { failure: "thrown" in result ? "handler_threw" : "tool_error" }),
     });
 }
 
@@ -218,6 +181,7 @@ export function registerTool(
     const inputSchema = sourceConfig.inputSchema && typeof sourceConfig.inputSchema === "object"
         ? sourceConfig.inputSchema as Record<string, unknown>
         : {};
+    const resolveProjectSession = projectSessionResolvers.get(server);
     const configWithUi = {
         ...sourceConfig,
         inputSchema: {
@@ -225,6 +189,11 @@ export function registerTool(
                 "Short user-visible summary of what this call will obtain, verify, or change.",
             ),
             ...inputSchema,
+            ...(resolveProjectSession ? {
+                project_session: z.string().regex(/^[a-f0-9]{64}$/).optional().describe(
+                    "Stable handle returned by project_control(select). Pass it on every subsequent tool call in this conversation, including after reconnecting or when client session metadata is absent.",
+                ),
+            } : {}),
         },
         securitySchemes,
         _meta: {
@@ -246,13 +215,19 @@ export function registerTool(
                 writeRuntimeLog("info", "tool_call_started", {
                     invocationId,
                     tool: name,
-                    purpose: typeof args.purpose === "string" ? args.purpose : "",
                 });
             }
             try {
                 const executionArgs = { ...args };
                 delete executionArgs.purpose;
-                const result = withUiCardMeta(name, args, await handler(executionArgs));
+                delete executionArgs.project_session;
+                let sessionError: CallToolResult | undefined;
+                if (resolveProjectSession && typeof args.project_session === "string") {
+                    const ownerId = resolveProjectSession(args.project_session);
+                    if (ownerId) setToolProjectOwner(ownerId);
+                    else sessionError = errorResult("project_session 已失效或不属于当前连接。请在用户确认的项目上重新调用 project_control(action=select)，并在后续调用中携带返回的 project_session。");
+                }
+                const result = withUiCardMeta(name, args, sessionError ?? await handler(executionArgs));
                 const durationMs = performance.now() - startedAt;
                 runtimeTelemetry.recordTool(
                     name,
@@ -260,15 +235,14 @@ export function registerTool(
                     result.isError === true,
                     estimateResultBytes(result),
                 );
-                logToolCall(name, args, result, Math.round(durationMs), invocationId);
+                logToolCall(name, result, Math.round(durationMs), invocationId);
                 return result;
             } catch (error) {
                 const durationMs = performance.now() - startedAt;
                 runtimeTelemetry.recordTool(name, durationMs, true, 0);
                 logToolCall(
                     name,
-                    args,
-                    { thrown: error instanceof Error ? error.message : String(error) },
+                    { thrown: true },
                     Math.round(durationMs),
                     invocationId,
                 );

@@ -112,8 +112,11 @@ export class DaemonControlClient {
         return (data as ControlRegisterResponse).project;
     }
 
-    async deactivateProject(id: string, path?: string): Promise<ControlDeactivateResponse> {
-        const query = path ? `?path=${encodeURIComponent(path)}` : "";
+    async deactivateProject(id: string, path?: string, forget = false): Promise<ControlDeactivateResponse> {
+        const params = new URLSearchParams();
+        if (path) params.set("path", path);
+        if (forget) params.set("forget", "true");
+        const query = params.size ? `?${params}` : "";
         const data = await this.request(`/daemon/projects/${encodeURIComponent(id)}${query}`, {
             method: "DELETE",
         });
@@ -551,9 +554,9 @@ export async function withDaemonLifecycleLock<T>(run: () => Promise<T>): Promise
 }
 
 function tryAcquireLock(): () => void {
-    mkdirSync(dirname(DAEMON_LOCK_PATH), { recursive: true });
+    mkdirSync(dirname(DAEMON_LOCK_PATH), { recursive: true, mode: 0o700 });
     const owner = randomUUID();
-    const handle = openSync(DAEMON_LOCK_PATH, "wx");
+    const handle = openSync(DAEMON_LOCK_PATH, "wx", 0o600);
     try {
         writeSync(handle, JSON.stringify({ pid: process.pid, owner, at: new Date().toISOString() }), null, "utf8");
     } finally {

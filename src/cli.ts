@@ -530,6 +530,12 @@ async function runDaemonServices(flags: CliFlags, signal: AbortSignal, ready: ()
     process.once("SIGTERM", () => {
         void shutdown();
     });
+    process.on("unhandledRejection", (reason) => {
+        writeRuntimeLog("error", "unhandled_rejection", {
+            error: reason instanceof Error ? reason.message : String(reason),
+            stack: reason instanceof Error ? reason.stack : undefined,
+        });
+    });
     ready();
 }
 

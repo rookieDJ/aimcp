@@ -31,6 +31,16 @@ export interface Project {
 }
 
 export interface Conversation { id: string; projectId: string; label: string; lastSeenAt: string; }
+export interface ConversationRecord {
+    id: string; client: "chatgpt" | "gemini" | "other"; label: string; title?: string;
+    projectId: string; projectName: string; firstSeenAt: string; lastSeenAt: string;
+    bound: boolean; registered: boolean; messageCount: number;
+}
+export interface ConversationTranscript {
+    id: string; client: ConversationRecord["client"]; title?: string;
+    messages: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp?: string }>;
+    projects: Array<{ projectId: string; projectName: string }>;
+}
 export interface ProjectSuggestion { name: string; path: string; source: "recent" | "discovered"; }
 export interface ConnectionCheck {
     checkedAt: string;
@@ -51,6 +61,7 @@ export interface CapabilityConfig {
 }
 
 export interface SetupConfigState {
+    saveConversations?: boolean;
     publicAccess?: { kind: "external" | "cloudflare"; domain: string };
     runtime?: { mode: "local" | "public"; noTunnel?: boolean; tunnelLogs?: boolean };
 }
@@ -66,6 +77,8 @@ export interface ConsoleSnapshot {
     status: ControllerStatus;
     setup: { config: SetupConfigState; passwordConfigured: boolean };
     conversations: Conversation[];
+    conversationRecords: ConversationRecord[];
+    unavailableConversationRecords: number;
 }
 
 export interface OperationSnapshot {

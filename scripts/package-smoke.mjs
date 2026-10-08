@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkTarball } from "./check-package.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const packageMetadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -72,6 +73,7 @@ function buildTarball() {
 
 const tarball = process.argv[2] ? resolve(process.argv[2]) : buildTarball();
 if (!existsSync(tarball)) throw new Error(`package tarball does not exist: ${tarball}`);
+await checkTarball(tarball);
 
 run(npm, ["install", "--global", "--prefix", installRoot, tarball, "--omit=dev", "--registry=https://registry.npmjs.org"]);
 const globalModules = process.platform === "win32"

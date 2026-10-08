@@ -3,7 +3,7 @@ import { bindingPresentationId, presentBindings, validateProjectFolder } from ".
 import { generateAdminPassword, hasAdminPassword, setAdminPassword, verifyAdminPassword } from "../auth/password-store.js";
 import { CapabilityManager } from "../capabilities/manager.js";
 import { resolveCapabilitiesConfig } from "../capabilities/config.js";
-import { ensureUserConfigDirs, loadUserConfig, saveUserConfig, type UserCapabilitiesConfig } from "../config/user-config.js";
+import { ensureUserConfigDirs, isConversationRecordingEnabled, loadUserConfig, saveUserConfig, type UserCapabilitiesConfig } from "../config/user-config.js";
 import {
     cleanStaleDaemonState,
     contactRunningDaemon,
@@ -24,6 +24,7 @@ import { runSelfUpdate } from "../doctor/update.js";
 import { findRipgrep } from "../lib/search/ripgrep.js";
 import { ensureManagedTool } from "../managed-tools/install.js";
 import { BindingStore } from "../projects/bindings.js";
+import { archiveProjectBindings, deleteConversation, listConversationRecords, readConversation } from "../projects/conversations.js";
 import { canonicalProjectPath, detectProjectDisplayName } from "../projects/identity.js";
 import { ProjectRegistry } from "../projects/registry.js";
 import { readRecentLogLines } from "../lib/log-reader.js";
@@ -58,6 +59,28 @@ export type PresentedConversation = ReturnType<typeof presentBindings>[number];
 export interface ProjectConversationsResult {
     project?: RegisteredProject;
     conversations: PresentedConversation[];
+}
+
+export function getConversationHistory() {
+    // Reads stay read-only; live legacy bindings are already persisted in routing state.
+    return listConversationRecords(loadBindingsFile(), loadProjectsFile());
+}
+
+export function setConversationRecording(enabled: boolean): { enabled: boolean } {
+    if (typeof enabled !== "boolean") throw new Error("enabled must be a boolean");
+    saveUserConfig({ saveConversations: enabled });
+    return { enabled: isConversationRecordingEnabled() };
+}
+
+export async function deleteConversationHistory(id: string) {
+    const binding = loadBindingsFile().find(item => bindingPresentationId(item.ownerKey) === id);
+    return await deleteConversation(id, binding?.client ?? (binding?.ownerKey.includes("|openai-session:") ? "chatgpt" : "other"));
+}
+
+export function getConversationTranscript(id: string) {
+    const record = readConversation(id);
+    if (!record) throw new Error("此会话尚未收到客户端发送的聊天内容。");
+    return record;
 }
 
 export interface CleanupProjectConversationsResult extends ProjectConversationsResult {
@@ -139,16 +162,25 @@ export async function addProject(pathValue: string): Promise<RegisteredProject> 
     });
 }
 
-export async function removeProject(target: string): Promise<{ removed: boolean; project: RegisteredProject }> {
+export async function removeProject(target: string, options: { forget?: boolean } = {}): Promise<{ removed: boolean; project: RegisteredProject }> {
     return await withDaemonLifecycleLock(async () => {
         const daemon = await contactRunningDaemon();
         const status = daemon ? await daemon.client.status() : undefined;
         const projects = status?.projects ?? loadProjectsFile();
         const project = resolveProjectSelection(projects, target);
         if (!project) throw new Error(`没有找到项目：${target}`);
+        await archiveProjectBindings(project, daemon ? await daemon.client.listProjectBindings(project.id) : loadBindingsFile());
         if (daemon) {
-            const result = await daemon.client.deactivateProject(project.id, project.path);
+            const result = await daemon.client.deactivateProject(project.id, project.path, options.forget);
             return { removed: result.removed, project };
+        }
+        if (options.forget) {
+            // Keep a retryable inactive registration until every cleanup/write succeeds.
+            const inactive = projects.map((item) => item.id === project.id ? { ...item, active: false } : item);
+            if (project.active) await saveProjectsFile(inactive);
+            await new BindingStore().invalidateProject(project.id);
+            await saveProjectsFile(inactive.filter((item) => item.id !== project.id));
+            return { removed: true, project };
         }
         await new BindingStore().invalidateProject(project.id);
         if (!project.active) return { removed: false, project };
@@ -198,6 +230,7 @@ export async function cleanupProjectConversations(
         const removeOwnerKeys = bindings
             .filter((binding) => requestedIds.has(bindingPresentationId(binding.ownerKey)))
             .map((binding) => binding.ownerKey);
+        await archiveProjectBindings(project, bindings.filter(binding => removeOwnerKeys.includes(binding.ownerKey)));
 
         let removed = 0;
         let remaining: SessionBinding[];
@@ -250,12 +283,13 @@ export async function generateConnectionPassword(): Promise<string> {
 }
 
 export async function getConsoleSyncState(): Promise<{
-    config: Pick<ReturnType<typeof loadUserConfig>, "publicAccess" | "runtime">;
+    config: Pick<ReturnType<typeof loadUserConfig>, "publicAccess" | "runtime" | "saveConversations">;
     passwordConfigured: boolean;
 }> {
     const config = loadUserConfig();
     return {
         config: {
+            saveConversations: config.saveConversations === true,
             ...(config.publicAccess ? { publicAccess: config.publicAccess } : {}),
             ...(config.runtime ? { runtime: config.runtime } : {}),
         },

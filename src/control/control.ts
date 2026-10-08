@@ -287,9 +287,9 @@ export async function withControllerLifecycleLock<T>(run: () => Promise<T>): Pro
 }
 
 function tryAcquireControllerLock(): () => void {
-    mkdirSync(dirname(CONTROLLER_LOCK_PATH), { recursive: true });
+    mkdirSync(dirname(CONTROLLER_LOCK_PATH), { recursive: true, mode: 0o700 });
     const owner = randomUUID();
-    const handle = openSync(CONTROLLER_LOCK_PATH, "wx");
+    const handle = openSync(CONTROLLER_LOCK_PATH, "wx", 0o600);
     try {
         writeSync(handle, JSON.stringify({ pid: process.pid, owner, at: new Date().toISOString() }), null, "utf8");
     } finally {

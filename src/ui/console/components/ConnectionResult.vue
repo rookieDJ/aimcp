@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CircleCheck, WarningFilled, Clock } from "@element-plus/icons-vue";
 import type { ConnectionCheck } from "../api.js";
+import SpotlightCard from "./SpotlightCard.vue";
 
 defineProps<{ result?: ConnectionCheck }>();
 const emit = defineEmits<{ action: [value: "start" | "connect" | "projects" | "repair"] }>();
@@ -9,26 +10,45 @@ function iconFor(state: ConnectionCheck["checks"][number]["state"]) {
     return state === "passed" ? CircleCheck : state === "failed" ? WarningFilled : Clock;
 }
 function colorFor(state: ConnectionCheck["checks"][number]["state"]): string {
-    return state === "passed" ? "var(--el-color-success)" : "var(--el-color-warning)";
+    return state === "passed" ? "var(--accent-green, #22c55e)" : "var(--accent-amber, #f59e0b)";
 }
 </script>
 
 <template>
-    <el-card v-if="result" shadow="never">
-        <div class="section-heading">
-            <div>
-                <h2>{{ result.ready ? "连接检查通过" : "还有检查项需要处理" }}</h2>
-                <p>{{ result.ready ? "服务已准备好，可以在支持 OAuth 的远程 MCP 客户端中使用。" : "按下面提示处理后再重新检查。" }}</p>
+    <SpotlightCard v-if="result" class="connection-result-card" :spotlight-color="result.ready ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)'">
+        <div class="result-card-inner">
+            <div class="result-card-header">
+                <div class="result-header-text">
+                    <span class="result-kicker">CONNECTIVITY REPORT</span>
+                    <h2>{{ result.ready ? "端到端连通性检查全部通过" : "连通性检查未完全通过" }}</h2>
+                    <p>{{ result.ready ? "公网反向探测成功，MCP 服务已就绪，可直接在 ChatGPT 或 Gemini 中调用。" : "检测到待处理检查项，请根据下方提示调整后再次检查。" }}</p>
+                </div>
+                <el-tag :type="result.ready ? 'success' : 'warning'" effect="light" class="result-status-tag">
+                    <span class="badge-dot" :class="{ 'is-online': result.ready }"></span>
+                    {{ result.ready ? "全部就绪" : "待处理项" }}
+                </el-tag>
             </div>
-            <el-tag :type="result.ready ? 'success' : 'warning'">{{ result.ready ? "已就绪" : "未就绪" }}</el-tag>
-        </div>
-        <div v-for="item in result.checks" :key="item.id" class="status-line">
-            <div class="inline-actions" style="align-items: flex-start">
-                <el-icon :style="{ color: colorFor(item.state), marginTop: '2px' }"><component :is="iconFor(item.state)" /></el-icon>
-                <div><strong>{{ item.label }}</strong><div class="muted small" style="margin-top: 4px">{{ item.detail }}</div></div>
+
+            <div class="checks-list">
+                <div v-for="item in result.checks" :key="item.id" class="check-item-row" :class="`is-${item.state}`">
+                    <div class="check-item-main">
+                        <el-icon class="check-icon" :style="{ color: colorFor(item.state) }">
+                            <component :is="iconFor(item.state)" />
+                        </el-icon>
+                        <div class="check-content">
+                            <strong class="check-label">{{ item.label }}</strong>
+                            <div class="check-detail muted small">{{ item.detail }}</div>
+                        </div>
+                    </div>
+                    <el-button v-if="item.action" text type="primary" class="check-action-btn" @click="emit('action', item.action)">
+                        去处理 →
+                    </el-button>
+                </div>
             </div>
-            <el-button v-if="item.action" text type="primary" @click="emit('action', item.action)">去处理</el-button>
+
+            <div class="result-footer muted small">
+                <span>检查时间：{{ new Date(result.checkedAt).toLocaleTimeString("zh-CN") }}</span>
+            </div>
         </div>
-        <div class="muted small" style="margin-top: 12px">检查时间 {{ new Date(result.checkedAt).toLocaleTimeString("zh-CN") }}</div>
-    </el-card>
+    </SpotlightCard>
 </template>

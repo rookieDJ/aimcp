@@ -118,6 +118,19 @@ export class ProjectRegistry {
         });
     }
 
+    /** Forget only after access has been disabled and runtime/binding cleanup succeeded. */
+    async removeInactiveById(id: string): Promise<RegisteredProject | undefined> {
+        return await this.mutex.runExclusive(async () => {
+            const target = this.getById(id);
+            if (!target) return undefined;
+            if (target.active) throw new Error("项目已重新启用，请刷新后重试移除。");
+            const nextProjects = this.projects.filter((item) => item.id !== id);
+            await this.persist(nextProjects);
+            this.projects = nextProjects;
+            return { ...target };
+        });
+    }
+
     private async setActive(target: RegisteredProject, active: boolean): Promise<RegisteredProject> {
         const updated = { ...target, active };
         const nextProjects = this.projects.map((item) =>

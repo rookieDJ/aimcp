@@ -5,6 +5,7 @@ import { terminateChildProcess } from "../lib/process/tree.js";
 import { printCompactLog } from "../lib/util/terminal.js";
 import { ensureUserConfigDirs, getUserLogDir } from "../config/user-config.js";
 import { cloudflaredChildEnv } from "./exec.js";
+import { openPrivateAppendFile } from "../lib/fs/atomic-file.js";
 
 const DEFAULT_READY_TIMEOUT_MS = 180_000;
 const MAX_DIAGNOSTIC_LOG_CHARS = 16_000;
@@ -126,7 +127,7 @@ export class CloudflaredSidecar {
         this.emitState("starting", false);
 
         const configPath = this.options.configPath;
-        this.logStream = createWriteStream(this.logPath, { flags: "a" });
+        this.logStream = createWriteStream(this.logPath, { fd: openPrivateAppendFile(this.logPath), autoClose: true });
         this.logStream.on("error", () => {
             this.logStream = undefined;
         });

@@ -1,0 +1,10 @@
+[mcp_servers.shadcn]
+command = "npx"
+args = ["--yes", "--cache", ".codex/.npm-cache", "shadcn@latest", "mcp"]
+startup_timeout_sec = 60
+
+# shadcn's SOCKS ALL_PROXY dispatcher does not complete HTTPS in this setup.
+# Use the client's inherited HTTP(S) proxy settings instead.
+[mcp_servers.shadcn.env]
+ALL_PROXY = ""
+all_proxy = ""

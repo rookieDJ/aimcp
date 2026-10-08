@@ -1,7 +1,10 @@
 import {
     closeSync,
+    constants,
     existsSync,
     fsyncSync,
+    fchmodSync,
+    fstatSync,
     mkdirSync,
     openSync,
     readFileSync,
@@ -55,7 +58,7 @@ function replaceFile(tempPath: string, path: string): void {
 
 /** Atomically replace a user-private file with a fully written 0600 temp file. */
 export function writePrivateFileAtomic(path: string, content: string | Buffer): void {
-    mkdirSync(dirname(path), { recursive: true });
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
     let handle: number | undefined;
     try {
@@ -75,4 +78,15 @@ export function writePrivateFileAtomic(path: string, content: string | Buffer): 
 export function copyPrivateFileAtomic(source: string, destination: string): void {
     const content = readFileSync(source);
     writePrivateFileAtomic(destination, content);
+}
+
+/** Append logs without following a planted symlink or retaining old public modes. */
+export function openPrivateAppendFile(path: string): number {
+    const fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | (constants.O_NOFOLLOW ?? 0), 0o600);
+    try {
+        const file = fstatSync(fd);
+        if (!file.isFile() || (process.getuid && file.uid !== process.getuid())) throw new Error("私有日志必须是当前用户拥有的普通文件。");
+        if (process.platform !== "win32") fchmodSync(fd, 0o600);
+        return fd;
+    } catch (error) { closeSync(fd); throw error; }
 }

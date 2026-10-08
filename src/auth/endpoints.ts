@@ -149,8 +149,7 @@ function sendOAuthError(res: express.Response, error: unknown): void {
         res.status(status).json(error.toResponseObject());
         return;
     }
-    const detail = error instanceof Error ? error.message : "unknown error";
-    printCompactLog("error", `OAuth 端点发生内部错误：${detail}`);
+    printCompactLog("error", "OAuth 端点发生内部错误");
     writeRuntimeLog("error", "oauth_endpoint_failed", {
         reason: error instanceof Error ? error.name : "unknown",
     });

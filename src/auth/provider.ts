@@ -160,7 +160,7 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
             if (response.status !== 200) {
                 logOAuthWarning(
                     "oauth_cimd_http_error",
-                    `OAuth 客户端元数据请求返回 HTTP ${response.status}：${url.origin}${url.pathname}`,
+                    `OAuth 客户端元数据请求返回 HTTP ${response.status}`,
                     { status: response.status },
                 );
                 return undefined;
@@ -172,7 +172,7 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
             if (!client) {
                 logOAuthWarning(
                     "oauth_cimd_invalid_metadata",
-                    `OAuth 客户端元数据校验失败：${url.origin}${url.pathname}`,
+                    "OAuth 客户端元数据校验失败",
                 );
                 return undefined;
             }
@@ -183,9 +183,7 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
         } catch (error) {
             logOAuthWarning(
                 "oauth_cimd_fetch_failed",
-                `OAuth 客户端元数据请求失败：${url.origin}${url.pathname} · ${
-                    error instanceof Error ? error.message : "unknown error"
-                }`,
+                "OAuth 客户端元数据请求失败",
                 { reason: error instanceof Error ? error.name : "unknown" },
             );
             return undefined;
@@ -248,9 +246,7 @@ export class CodexOAuthProvider implements OAuthServerProvider {
         } catch (error) {
             logOAuthWarning(
                 "oauth_private_key_jwt_rejected",
-                `OAuth private_key_jwt 已拒绝：${client.client_id} · ${
-                    error instanceof Error ? error.message : "unknown error"
-                }`,
+                "OAuth private_key_jwt 已拒绝",
                 { reason: error instanceof Error ? error.name : "unknown" },
             );
             throw new InvalidClientError("Invalid client authentication");

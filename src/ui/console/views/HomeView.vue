@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { CopyDocument, FolderAdd, Link, VideoPause, VideoPlay, Refresh, Tools } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus/es/components/message/index";
 import "element-plus/es/components/message/style/css";
 import type { ConnectionCheck, ControllerStatus, Project, SetupSummary } from "../api.js";
 import ConnectionResult from "../components/ConnectionResult.vue";
+import SpotlightCard from "../components/SpotlightCard.vue";
 
 const props = defineProps<{
     status?: ControllerStatus;
@@ -37,135 +38,294 @@ const connectionDetail = computed(() => {
 });
 const liveMode = computed(() => props.status?.runtime.runtime?.mode === "local" ? "local" : props.status?.runtime.runtime?.mode === "public" ? "public" : undefined);
 const preferredMode = computed(() => props.setup?.config.runtime?.mode ?? (publicUrl.value ? "public" : "local"));
+const modeSelection = ref<"local" | "public">();
+const startMode = computed(() => modeSelection.value ?? preferredMode.value);
+const needsPublicSetup = computed(() => startMode.value === "public" && !configured.value);
+const liveEndpoint = computed(() => liveMode.value === "local" ? localUrl.value : props.status?.runtime.runtime?.publicMcpUrl ?? "");
+const workflowSteps = computed(() => [
+    { label: "选择项目", detail: activeProjects.value.length ? `${activeProjects.value.length} 个项目可用` : "添加项目，或启用已停用项目", done: activeProjects.value.length > 0 },
+    { label: "启动服务", detail: running.value ? `正在以${liveMode.value === 'local' ? '本机' : '公网'}模式运行` : needsPublicSetup.value ? "先配置公网地址与密码" : `以${startMode.value === 'local' ? '本机' : '公网'}模式启动`, done: running.value },
+    { label: "获取连接地址", detail: running.value && liveEndpoint.value ? "复制地址，在 MCP 客户端中添加" : "启动后生成可用地址", done: running.value && Boolean(liveEndpoint.value) },
+]);
+const currentStep = computed(() => workflowSteps.value.findIndex(step => !step.done));
+function selectStartMode(value: unknown): void { if (value === "local" || value === "public") modeSelection.value = value; }
 const heroTitle = computed(() => running.value ? "你的 MCP 工作区正在运行" : "让本机项目随时可用");
 const heroDescription = computed(() => running.value
-    ? `aimcp 正在以${liveMode.value === "public" ? "公网" : "本机"}模式提供 MCP 服务。你可以在下方复制连接地址或管理项目。`
-    : "添加本机项目并启动 MCP 服务。运行状态、连接方式和项目会在这里集中显示。");
-
-function moveHeroSpotlight(event: PointerEvent): void {
-    if (event.pointerType !== "mouse") return;
-    const element = event.currentTarget as HTMLElement;
-    const bounds = element.getBoundingClientRect();
-    element.style.setProperty("--spot-x", `${event.clientX - bounds.left}px`);
-    element.style.setProperty("--spot-y", `${event.clientY - bounds.top}px`);
-}
-
-function resetHeroSpotlight(event: PointerEvent): void {
-    const element = event.currentTarget as HTMLElement;
-    element.style.removeProperty("--spot-x");
-    element.style.removeProperty("--spot-y");
-}
+    ? `aimcp 正在以${liveMode.value === "public" ? "公网" : "本机"}模式提供 MCP 服务。已接入的客户端可直接浏览代码、调用命令和管理外部技能。`
+    : "添加本机代码项目并启动 MCP 服务。运行状态、公网隧道和会话绑定均在下方实时展示。");
 
 async function copyUrl(url: string, label: string): Promise<void> {
     if (!url) return;
-    try { await navigator.clipboard.writeText(url); ElMessage.success(`${label}已复制`); }
-    catch { ElMessage.error("复制失败，请手动复制"); }
+    try {
+        await navigator.clipboard.writeText(url);
+        ElMessage.success(`${label}已复制到剪贴板`);
+    } catch {
+        ElMessage.error("复制失败，请手动选择复制");
+    }
 }
 </script>
 
 <template>
     <div class="home-dashboard">
-        <section class="home-hero" :class="{ 'is-running': running }" @pointermove="moveHeroSpotlight" @pointerleave="resetHeroSpotlight">
-            <div class="home-hero-copy">
-                <div class="home-hero-kicker">
-                    <span class="hero-live-dot" :class="{ 'is-online': running }"></span>
-                    <span>{{ running ? "MCP 服务运行中" : "本机工作区" }}</span>
-                    <span class="hero-kicker-divider"></span>
-                    <span class="hero-kicker-subtle">{{ running ? (liveMode === "public" ? "公网模式" : "本机模式") : `aimcp · v${status?.version ?? "—"}` }}</span>
-                </div>
-                <h1>{{ heroTitle }}</h1>
-                <p>{{ heroDescription }}</p>
-                <div class="home-hero-meta">
-                    <span><i class="hero-meta-dot"></i>{{ activeProjects.length }} 个活动项目</span>
-                    <span class="hero-meta-divider"></span>
-                    <span>{{ conversationCount }} 个会话绑定</span>
-                </div>
-            </div>
-            <div class="home-hero-art" aria-hidden="true">
-                <span class="hero-orbit hero-orbit-outer"></span>
-                <span class="hero-orbit hero-orbit-inner"></span>
-                <span class="hero-orbit-glow"></span>
-                <span class="hero-orbit-node hero-orbit-node-one"></span>
-                <span class="hero-orbit-node hero-orbit-node-two"></span>
-                <span class="hero-orbit-core">A</span>
-            </div>
-        </section>
-
+        <div class="page-heading home-heading">
+            <div class="page-heading-copy"><h1 class="page-title">概览</h1><p>{{ heroDescription }}</p></div>
+            <el-tag :type="running ? 'success' : 'info'" effect="plain">{{ heroTitle }}</el-tag>
+        </div>
+        <!-- Bento 4-Metric Grid -->
         <div class="metric-grid">
-            <el-card class="metric-card metric-card--service" shadow="never">
-                <div class="metric-topline"><div class="metric-label">MCP 服务</div><span class="metric-mark">01</span></div>
-                <div class="metric-value">{{ loading ? "…" : running ? "运行中" : "未启动" }}</div>
-                <div class="metric-detail">{{ liveMode === "local" ? "当前仅本机可访问" : liveMode === "public" ? "本机与公网地址可用" : "启动后提供 MCP 地址" }}</div>
-            </el-card>
-            <el-card class="metric-card metric-card--remote" shadow="never">
-                <div class="metric-topline"><div class="metric-label">公网连接</div><span class="metric-mark">02</span></div>
-                <div class="metric-value">{{ configured ? "已配置" : "未配置" }}</div>
-                <div class="metric-detail">{{ connectionDetail }}</div>
-            </el-card>
-            <el-card class="metric-card metric-card--projects" shadow="never">
-                <div class="metric-topline"><div class="metric-label">活动项目</div><span class="metric-mark">03</span></div>
-                <div class="metric-value">{{ activeProjects.length }}</div>
-                <div class="metric-detail">{{ projects.length - activeProjects.length }} 个已停用</div>
-            </el-card>
-            <el-card class="metric-card metric-card--sessions" shadow="never">
-                <div class="metric-topline"><div class="metric-label">会话绑定</div><span class="metric-mark">04</span></div>
-                <div class="metric-value">{{ conversationCount }}</div>
-                <div class="metric-detail">当前项目选择记录</div>
-            </el-card>
+            <SpotlightCard class="metric-card metric-card--service">
+                <div class="metric-card-inner">
+                    <div class="metric-topline">
+                        <div class="metric-label">MCP 服务状态</div>
+                        <span class="metric-mark">01 // STATUS</span>
+                    </div>
+                    <div class="metric-value-row">
+                        <span class="metric-value">{{ loading ? "…" : running ? "运行中" : "未启动" }}</span>
+                        <span class="metric-indicator" :class="{ 'is-online': running }"></span>
+                    </div>
+                    <div class="metric-detail">{{ liveMode === "local" ? "当前仅本机可访问" : liveMode === "public" ? "公网隧道已开启" : "启动后提供 MCP 接入" }}</div>
+                </div>
+            </SpotlightCard>
+
+            <SpotlightCard class="metric-card metric-card--remote">
+                <div class="metric-card-inner">
+                    <div class="metric-topline">
+                        <div class="metric-label">公网接入</div>
+                        <span class="metric-mark">02 // ACCESS</span>
+                    </div>
+                    <div class="metric-value-row">
+                        <span class="metric-value">{{ configured ? "已配置" : "未配置" }}</span>
+                        <span class="metric-indicator" :class="{ 'is-online': configured }"></span>
+                    </div>
+                    <div class="metric-detail">{{ connectionDetail }}</div>
+                </div>
+            </SpotlightCard>
+
+            <SpotlightCard class="metric-card metric-card--projects">
+                <div class="metric-card-inner">
+                    <div class="metric-topline">
+                        <div class="metric-label">已注册项目</div>
+                        <span class="metric-mark">03 // PROJECTS</span>
+                    </div>
+                    <div class="metric-value-row">
+                        <span class="metric-value">{{ activeProjects.length }}</span>
+                        <span class="metric-sub-count">/ {{ projects.length }}</span>
+                    </div>
+                    <div class="metric-detail">{{ projects.length - activeProjects.length }} 个停用 · {{ conversationCount }} 个会话绑定</div>
+                </div>
+            </SpotlightCard>
+
+
         </div>
 
-        <div class="content-grid home-content-grid">
-            <el-card class="home-primary-card" shadow="never">
-                <div class="section-heading">
-                    <div><h2>服务与连接</h2><p>按当前状态选择操作，地址会在服务运行后显示。</p></div>
-                    <span class="section-status" :class="{ 'is-online': running }"><i></i>{{ running ? "实时状态" : "等待启动" }}</span>
-                </div>
-
-                <div v-if="!activeProjects.length" class="inline-actions home-actions"><el-button type="primary" :icon="FolderAdd" @click="emit('add')">添加项目</el-button><span class="muted small">项目注册不会启动 MCP 服务。</span></div>
-                <div v-else-if="!running && !configured" class="inline-actions home-actions"><el-button type="primary" :icon="Link" @click="emit('navigate', 'connect')">配置公网连接</el-button><el-button :icon="VideoPlay" :loading="busy" @click="emit('start', 'local')">本机启动</el-button></div>
-                <div v-else-if="!running" class="inline-actions home-actions"><el-button type="primary" :icon="VideoPlay" :loading="busy" @click="emit('start', 'public')">启动公网服务</el-button><el-button :loading="busy" @click="emit('start', 'local')">本机启动</el-button><span class="muted small">默认：{{ preferredMode === 'public' ? '公网' : '本机' }}</span></div>
-                <div v-else class="inline-actions home-actions"><el-button v-if="liveMode === 'local' && !configured" type="primary" :icon="Link" @click="emit('navigate', 'connect')">配置公网连接</el-button><el-button v-else-if="liveMode === 'local' && configured" type="primary" :loading="busy" @click="emit('start', 'public')">切换到公网</el-button><el-button v-else-if="liveMode === 'public'" :loading="busy" @click="emit('start', 'local')">切换到本机</el-button><el-button v-if="liveMode === 'public'" type="primary" :icon="Refresh" :loading="busy" @click="emit('check')">检查连接</el-button><el-button :icon="Tools" @click="emit('repair')">检查并修复</el-button><el-button text type="danger" :icon="VideoPause" :disabled="busy" @click="emit('stop')">停止服务</el-button></div>
-
-                <div class="endpoint-section">
-                    <div class="endpoint-section-title">MCP 连接地址</div>
-                    <div class="endpoint-row">
-                        <div class="endpoint-info">
-                            <span class="endpoint-icon endpoint-icon--local">本</span>
-                            <div><strong>本机 MCP 地址</strong><span>仅此设备可访问</span></div>
+        <!-- Bento Content Grid: Primary Controls + System Telemetry -->
+        <div class="home-bento-grid">
+            <!-- Left Bento Column: Services, Actions & Endpoints -->
+            <SpotlightCard class="bento-box bento-box--main">
+                <div class="bento-box-inner">
+                    <div class="bento-header">
+                        <div class="bento-header-info">
+                            <span class="bento-eyebrow">CONTROL & ENDPOINTS</span>
+                            <h2>服务控制与连接地址</h2>
+                            <p>管理 MCP 服务的启停模式，并在下方获取提供给客户端的地址。</p>
                         </div>
-                        <code class="endpoint-url">{{ localUrl || (running ? "本机地址暂不可用" : "服务启动后显示") }}</code>
-                        <el-button v-if="localUrl" text :icon="CopyDocument" aria-label="复制本机 MCP 地址" @click="copyUrl(localUrl, '本机 MCP 地址')">复制</el-button>
+                        <span class="bento-status-pill" :class="{ 'is-online': running }">
+                            <i class="status-dot"></i>
+                            {{ running ? "实时运行" : "等待启动" }}
+                        </span>
                     </div>
-                    <div class="endpoint-row">
-                        <div class="endpoint-info">
-                            <span class="endpoint-icon endpoint-icon--public">网</span>
-                            <div><strong>公网 MCP 地址</strong><span>供远程客户端连接</span></div>
+
+                    <ol class="startup-flow" aria-label="MCP 接入流程">
+                        <li v-for="(step, index) in workflowSteps" :key="step.label" :class="{ 'is-done': step.done, 'is-current': index === currentStep }" :aria-current="index === currentStep ? 'step' : undefined">
+                            <span class="flow-step-number">{{ step.done ? '✓' : index + 1 }}</span>
+                            <div><strong>{{ step.label }}</strong><span>{{ step.detail }}</span></div>
+                        </li>
+                    </ol>
+                    <div v-if="!running" class="startup-mode">
+                        <span>启动模式</span>
+                        <el-radio-group :model-value="startMode" aria-label="启动模式" :disabled="busy || loading || !setup" @change="selectStartMode">
+                            <el-radio-button value="local">仅本机</el-radio-button>
+                            <el-radio-button value="public">公网接入</el-radio-button>
+                        </el-radio-group>
+                        <span class="muted small">{{ startMode === 'local' ? '本机客户端直连，无需公网配置' : '远程客户端通过 HTTPS 与 OAuth 接入' }}</span>
+                    </div>
+                    <!-- Dynamic Action Buttons -->
+                    <div class="home-actions-panel">
+                        <div v-if="!activeProjects.length" class="inline-actions">
+                            <el-button type="primary" :icon="FolderAdd" :disabled="busy || loading" @click="emit('add')">添加项目</el-button>
+                            <el-button v-if="projects.length" @click="emit('navigate', 'projects')">管理并启用已有项目</el-button>
+                            <span class="muted small">项目注册不会自动启动后台 MCP 服务。</span>
                         </div>
-                        <code class="endpoint-url">{{ publicUrl || "尚未配置" }}</code>
-                        <el-button v-if="publicUrl" text :icon="CopyDocument" aria-label="复制公网 MCP 地址" @click="copyUrl(publicUrl, '公网 MCP 地址')">复制</el-button>
+                        <div v-else-if="!running" class="inline-actions">
+                            <el-button v-if="needsPublicSetup" type="primary" :icon="Link" :disabled="busy || loading || !setup" @click="emit('navigate', 'connect')">配置公网连接</el-button>
+                            <el-button v-else type="primary" :icon="VideoPlay" :loading="busy" :disabled="loading || !setup" @click="emit('start', startMode)">{{ startMode === 'local' ? '启动本机服务' : '启动公网服务' }}</el-button>
+                            <span class="muted small">已保存偏好：{{ preferredMode === 'public' ? '公网模式' : '本机模式' }}；切换选项后，启动时保存。</span>
+                        </div>
+                        <div v-else class="inline-actions">
+                            <el-button v-if="liveEndpoint" type="primary" :icon="CopyDocument" @click="copyUrl(liveEndpoint, liveMode === 'local' ? '本机 MCP 地址' : '公网 MCP 地址')">复制当前 MCP 地址</el-button>
+                            <el-button v-if="liveMode === 'local' && !configured" :icon="Link" @click="emit('navigate', 'connect')">配置公网连接</el-button>
+                            <el-button v-else-if="liveMode === 'local' && configured" :loading="busy" @click="emit('start', 'public')">切换至公网模式</el-button>
+                            <el-button v-else-if="liveMode === 'public'" :loading="busy" @click="emit('start', 'local')">切换至仅本机模式</el-button>
+                            <el-button v-if="liveMode === 'public'" type="primary" :icon="Refresh" :loading="busy" @click="emit('check')">检查连通性</el-button>
+                            <el-button :icon="Tools" @click="emit('repair')">检查并修复</el-button>
+                            <el-button text type="danger" :icon="VideoPause" :disabled="busy" @click="emit('stop')">停止 MCP 服务</el-button>
+                        </div>
+                    </div>
+
+                    <!-- Modern Endpoints Display -->
+                    <div class="endpoint-bento-section">
+                        <div class="endpoint-section-header">
+                            <span class="endpoint-section-title">MCP 连接地址</span>
+                            <span class="endpoint-section-hint">点击右侧按钮一键复制</span>
+                        </div>
+
+                        <div class="endpoint-card endpoint-card--local">
+                            <div class="endpoint-info">
+                                <span class="endpoint-badge endpoint-badge--local">LOCAL</span>
+                                <div class="endpoint-meta">
+                                    <strong>本机地址</strong>
+                                    <span>仅当前这台电脑上的客户端可直连访问</span>
+                                </div>
+                            </div>
+                            <div class="endpoint-action-group">
+                                <code class="endpoint-code">{{ localUrl || (running ? "本机地址准备中…" : "服务启动后生成") }}</code>
+                                <el-button
+                                    v-if="localUrl"
+                                    text
+                                    class="endpoint-copy-btn"
+                                    :icon="CopyDocument"
+                                    @click="copyUrl(localUrl, '本机 MCP 地址')"
+                                >复制</el-button>
+                            </div>
+                        </div>
+
+                        <div class="endpoint-card endpoint-card--public">
+                            <div class="endpoint-info">
+                                <span class="endpoint-badge endpoint-badge--public">PUBLIC</span>
+                                <div class="endpoint-meta">
+                                    <strong>公网地址</strong>
+                                    <span>供 ChatGPT 或远程 Gemini 应用接入</span>
+                                </div>
+                            </div>
+                            <div class="endpoint-action-group">
+                                <code class="endpoint-code">{{ publicUrl || "尚未配置公网入口" }}</code>
+                                <el-button
+                                    v-if="publicUrl"
+                                    text
+                                    class="endpoint-copy-btn"
+                                    :icon="CopyDocument"
+                                    @click="copyUrl(publicUrl, '公网 MCP 地址')"
+                                >复制</el-button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Project Access -->
+                    <div class="home-projects-quickview">
+                        <span class="quickview-title">活动项目快捷入口</span>
+                        <div v-if="activeProjects.length" class="project-tags-list">
+                            <el-tag
+                                v-for="project in activeProjects.slice(0, 6)"
+                                :key="project.id"
+                                class="project-pill-tag"
+                                effect="plain"
+                                @click="emit('navigate', 'projects')"
+                            >
+
+                                {{ project.name }}
+                            </el-tag>
+                            <el-button
+                                v-if="activeProjects.length > 6"
+                                text
+                                size="small"
+                                class="project-more-btn"
+                                @click="emit('navigate', 'projects')"
+                            >
+                                +{{ activeProjects.length - 6 }} 更多项目
+                            </el-button>
+                        </div>
+                        <span v-else class="muted small">尚未添加任何项目目录</span>
                     </div>
                 </div>
+            </SpotlightCard>
 
-                <div class="home-projects-row">
-                    <div class="endpoint-section-title">当前项目</div>
-                    <div v-if="activeProjects.length" class="project-tags"><el-tag v-for="project in activeProjects.slice(0, 5)" :key="project.id" effect="plain" @click="emit('navigate', 'projects')">{{ project.name }}</el-tag><el-button v-if="activeProjects.length > 5" text @click="emit('navigate', 'projects')">+{{ activeProjects.length - 5 }}</el-button></div>
-                    <span v-else class="muted small">尚未添加项目</span>
-                </div>
-            </el-card>
+            <!-- Right Bento Column: System Telemetry -->
+            <SpotlightCard class="bento-box bento-box--telemetry">
+                <div class="bento-box-inner">
+                    <div class="bento-header">
+                        <div class="bento-header-info">
+                            <span class="bento-eyebrow">TELEMETRY</span>
+                            <h2>运行态详情</h2>
+                            <p>控制面与隧道配置</p>
+                        </div>
+                    </div>
 
-            <el-card class="home-status-card" shadow="never">
-                <div class="section-heading"><div><h2>运行状态</h2><p>控制面与远程连接配置</p></div></div>
-                <div class="status-list">
-                    <div class="status-line"><span class="status-label">本机 Controller</span><el-tag type="success" effect="light">运行中</el-tag></div>
-                    <div class="status-line"><span class="status-label">MCP Runtime</span><el-tag :type="running ? 'success' : 'info'" effect="light">{{ running ? (liveMode === 'public' ? '公网运行中' : '本机运行中') : '未启动' }}</el-tag></div>
-                    <div class="status-line"><span class="status-label">默认启动模式</span><el-tag effect="plain">{{ preferredMode === 'public' ? '公网' : '本机' }}</el-tag></div>
-                    <div class="status-line"><span class="status-label">公网连接</span><el-tag :type="publicUrl ? 'success' : 'warning'" effect="light">{{ publicUrl ? '已配置' : '未配置' }}</el-tag></div>
-                    <div class="status-line"><span class="status-label">连接密码</span><el-tag :type="setup?.passwordConfigured ? 'success' : 'warning'" effect="light">{{ setup?.passwordConfigured ? '已设置' : '未设置' }}</el-tag></div>
+                    <div class="telemetry-list">
+                        <div class="telemetry-row">
+                            <div class="telemetry-info">
+                                <span class="telemetry-label">本机 Controller</span>
+                                <span class="telemetry-desc">负责配置与控制面管理</span>
+                            </div>
+                            <el-tag type="success" effect="light" class="telemetry-tag">
+                                <span class="badge-dot is-online"></span>在线
+                            </el-tag>
+                        </div>
+
+                        <div class="telemetry-row">
+                            <div class="telemetry-info">
+                                <span class="telemetry-label">MCP Runtime</span>
+                                <span class="telemetry-desc">负责执行工具与会话</span>
+                            </div>
+                            <el-tag :type="running ? 'success' : 'info'" effect="light" class="telemetry-tag">
+                                <span class="badge-dot" :class="{ 'is-online': running }"></span>
+                                {{ running ? (liveMode === 'public' ? '公网运行中' : '本机运行中') : '未启动' }}
+                            </el-tag>
+                        </div>
+
+                        <div class="telemetry-row">
+                            <div class="telemetry-info">
+                                <span class="telemetry-label">默认启动偏好</span>
+                                <span class="telemetry-desc">无参数 start 时的行为</span>
+                            </div>
+                            <el-tag effect="plain" class="telemetry-tag mono">{{ preferredMode === 'public' ? '公网模式' : '本机模式' }}</el-tag>
+                        </div>
+
+                        <div class="telemetry-row">
+                            <div class="telemetry-info">
+                                <span class="telemetry-label">公网入口配置</span>
+                                <span class="telemetry-desc">Cloudflare 或反代域名</span>
+                            </div>
+                            <el-tag :type="publicUrl ? 'success' : 'warning'" effect="light" class="telemetry-tag">
+                                {{ publicUrl ? '已配置' : '未配置' }}
+                            </el-tag>
+                        </div>
+
+                        <div class="telemetry-row">
+                            <div class="telemetry-info">
+                                <span class="telemetry-label">连接密码保护</span>
+                                <span class="telemetry-desc">远程请求安全凭据</span>
+                            </div>
+                            <el-tag :type="setup?.passwordConfigured ? 'success' : 'warning'" effect="light" class="telemetry-tag">
+                                {{ setup?.passwordConfigured ? '已设置' : '未设置' }}
+                            </el-tag>
+                        </div>
+                    </div>
+
+                    <div class="telemetry-footer">
+                        <el-button class="telemetry-link-btn" text @click="emit('navigate', 'connect')">
+                            配置公网连接与密码
+                            <span class="arrow-icon">→</span>
+                        </el-button>
+                    </div>
                 </div>
-                <el-button class="status-settings-button" text @click="emit('navigate', 'connect')">管理连接设置 <span aria-hidden="true">→</span></el-button>
-            </el-card>
+            </SpotlightCard>
         </div>
 
-        <ConnectionResult class="home-connection-result" :result="result" @action="(action) => action === 'start' ? emit('start', configured ? 'public' : 'local') : action === 'projects' ? emit('add') : action === 'repair' ? emit('repair') : emit('navigate', 'connect')" />
+        <!-- Connection Result Check -->
+        <ConnectionResult
+            class="home-connection-result"
+            :result="result"
+            @action="(action) => action === 'start' ? emit('start', configured ? 'public' : 'local') : action === 'projects' ? emit('add') : action === 'repair' ? emit('repair') : emit('navigate', 'connect')"
+        />
     </div>
 </template>

@@ -70,6 +70,7 @@ export function unboundProjectMessage(activeProjects: RegisteredProject[]): stri
         "请先向用户确认要用哪个项目，不要自动猜测：",
         list,
         "调用 project_control(action=select, project_id=\"<确认的项目 id>\")。",
+        "如果之前已经选择过项目，请在本次调用携带选择结果中的 project_session；每次后续工具调用都要携带它，重连后也一样。",
         "如果 project_control 不可见，请刷新该 MCP 连接的工具列表或重新连接；已删除的旧项目工具不再提供兼容入口。",
     ].join("\n");
 }

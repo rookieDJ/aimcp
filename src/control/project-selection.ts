@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { detectProjectDisplayName } from "../projects/identity.js";
 import { expandHomePath } from "../config/loader.js";
 import { loadProjectsFile, type RegisteredProject, type SessionBinding } from "../daemon/state.js";
+import { clientLabel, conversationClientForId } from "../projects/conversations.js";
 
 const execute = promisify(execFile);
 let pickerOpen = false;
@@ -103,10 +104,18 @@ export function bindingPresentationId(ownerKey: string): string {
 }
 
 export function presentBindings(bindings: SessionBinding[]) {
-    return bindings.map((binding) => ({
-        id: bindingPresentationId(binding.ownerKey),
-        projectId: binding.projectId,
-        label: binding.ownerKey.includes("|openai-session:") ? "ChatGPT 会话" : "客户端会话",
-        lastSeenAt: binding.lastSeenAt,
-    })).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
+    return bindings.map((binding) => {
+        const id = bindingPresentationId(binding.ownerKey);
+        let label = binding.client ? `${clientLabel(binding.client)} 会话` : binding.ownerKey.includes("|openai-session:") ? "ChatGPT 会话" : "未识别客户端会话";
+        try {
+            const client = conversationClientForId(id);
+            if (client) label = `${clientLabel(client)} 会话`;
+        } catch { /* History errors must not hide valid routing state. */ }
+        return {
+            id,
+            projectId: binding.projectId,
+            label,
+            lastSeenAt: binding.lastSeenAt,
+        };
+    }).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
 }

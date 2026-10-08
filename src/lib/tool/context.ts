@@ -1,10 +1,13 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
 import type { ServerContext } from "@modelcontextprotocol/server";
 
 const OPENAI_SESSION_META_KEY = "openai/session";
 const MAX_OWNER_META_CHARS = 512;
 
 export interface ToolInvocationContext {
+    /** Validated application session owner; always scoped to the authenticated client. */
+    projectOwnerId?: string;
     /** Anonymous ChatGPT conversation/session id supplied per tool call. */
     openAiSessionId?: string;
     /** MCP transport session id when the transport exposes one. */
@@ -30,6 +33,7 @@ export async function runWithToolInvocationContext<T>(
 
 export function currentToolOwnerId(fallbackOwnerId: string): string {
     const current = invocationStorage.getStore();
+    if (current?.projectOwnerId) return current.projectOwnerId;
     if (current?.openAiSessionId) {
         return `${fallbackOwnerId}|openai-session:${current.openAiSessionId}`;
     }
@@ -37,6 +41,22 @@ export function currentToolOwnerId(fallbackOwnerId: string): string {
         return `${fallbackOwnerId}|mcp-session:${current.transportSessionId}`;
     }
     return fallbackOwnerId;
+}
+
+/** Use a validated handle or a new conversation owner within the current OAuth/local namespace. */
+export function setToolProjectOwner(ownerId: string): void {
+    const current = invocationStorage.getStore();
+    if (!current) throw new Error("Tool invocation context is missing");
+    current.projectOwnerId = ownerId;
+}
+
+/** Stateless clients need an explicit application session instead of sharing the OAuth owner. */
+export function ensureToolConversationOwner(fallbackOwnerId: string): string {
+    const ownerId = currentToolOwnerId(fallbackOwnerId);
+    if (ownerId !== fallbackOwnerId) return ownerId;
+    const isolated = `${fallbackOwnerId}|project-session:${randomUUID()}`;
+    setToolProjectOwner(isolated);
+    return isolated;
 }
 
 export function getToolInvocationContext(): ToolInvocationContext | undefined {

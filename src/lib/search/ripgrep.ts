@@ -5,6 +5,10 @@ import { terminateChildProcess } from "../process/tree.js";
 export async function findRipgrep(): Promise<string | null> {
     const candidates = [
         getManagedToolPath("ripgrep"),
+        "/opt/homebrew/bin/rg",
+        "/usr/local/bin/rg",
+        "/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex-path/rg",
+        "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex-path/rg",
         ...(process.platform === "win32" ? ["rg.exe", "rg"] : ["rg"]),
     ];
     for (const candidate of candidates) {

@@ -27,6 +27,7 @@ import {
 } from "./project-router.js";
 import type { ProjectRegistry } from "../projects/registry.js";
 import type { BindingStore } from "../projects/bindings.js";
+import { archiveProjectBindings } from "../projects/conversations.js";
 import type { ProjectRuntimeManager } from "../projects/runtime.js";
 import type { RuntimeIntent } from "../daemon/state.js";
 import { DAEMON_CONTROL_API_VERSION, type TunnelObservedStatus } from "../daemon/control.js";
@@ -106,6 +107,14 @@ function sendJsonRpcError(
     });
 }
 
+const WEB_MCP_ALLOWED_ORIGINS = [
+    "gemini.google.com",
+    "chatgpt.com",
+    "chat.openai.com",
+    "aistudio.google.com",
+    "claude.ai",
+];
+
 export function createHttpServer(
     config: ServerConfig,
     options: CreateHttpServerOptions = {},
@@ -127,15 +136,19 @@ export function createHttpServer(
                   ]),
               )
             : undefined;
+    const allowedOriginHostnames = publicHttpHostnames
+        ? Array.from(new Set([...publicHttpHostnames, ...WEB_MCP_ALLOWED_ORIGINS]))
+        : undefined;
     const app = createMcpExpressApp({
         host: config.host,
+        jsonLimit: "16mb",
         ...(publicHttpHostnames
             ? {
                   allowedHosts: publicHttpHostnames,
                   // When binding to loopback behind a public reverse proxy, the SDK
                   // otherwise installs localhost-only Origin validation even though
                   // Host validation already knows about the public tunnel hostname.
-                  allowedOrigins: publicHttpHostnames,
+                  allowedOrigins: allowedOriginHostnames,
               }
             : {}),
     });
@@ -286,6 +299,26 @@ export function createHttpServer(
         });
     }
 
+    // Support cross-origin browser requests (Gemini Web App, ChatGPT, etc.)
+    app.use("/mcp", (req, res, next) => {
+        const origin = req.header("origin");
+        if (origin) {
+            res.setHeader("access-control-allow-origin", origin);
+            res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
+            res.setHeader(
+                "access-control-allow-headers",
+                "authorization, content-type, mcp-session-id, last-event-id, accept",
+            );
+            res.setHeader("access-control-allow-credentials", "true");
+            res.setHeader("access-control-max-age", "86400");
+        }
+        if (req.method === "OPTIONS") {
+            res.status(204).end();
+            return;
+        }
+        next();
+    });
+
     // Observe the complete /mcp surface before bearer auth/rate limiting so
     // rejected 401/429 requests are included in HTTP error metrics too.
     app.all("/mcp", (req, res, next) => {
@@ -344,7 +377,8 @@ export function createHttpServer(
     app.all("/mcp", (req, res, next) => {
         if (req.method === "POST" && isInitializeRequest(req.body)) {
             const rateKey = requestClientKey(req);
-            if (!initializeLimiter.take(rateKey)) {
+            const isLocal = rateKey.startsWith("peer:127.0.0.1") || rateKey.startsWith("peer:::1");
+            if (!isLocal && !initializeLimiter.take(rateKey)) {
                 sendJsonRpcError(res, 429, -32000, "Too many MCP initialize requests");
                 return;
             }
@@ -354,6 +388,25 @@ export function createHttpServer(
 
     app.all("/mcp", async (req, res) => {
         await nodeMcpHandler(req, res, req.body);
+    });
+
+    app.use("/mcp", (err: unknown, _req: unknown, res: { headersSent: boolean; status: (code: number) => { json: (body: unknown) => void } }, next: (err?: unknown) => void) => {
+        if (res.headersSent) {
+            next(err);
+            return;
+        }
+        const isJsonParseError = err instanceof SyntaxError && "body" in err;
+        const isPayloadTooLarge = err instanceof Error && "type" in err && (err as { type: string }).type === "entity.too.large";
+        const code = isJsonParseError ? -32700 : isPayloadTooLarge ? -32600 : -32603;
+        const message = isJsonParseError
+            ? "Parse error: Invalid JSON payload"
+            : isPayloadTooLarge
+              ? "Invalid request: Payload too large"
+              : err instanceof Error
+                ? err.message
+                : "Internal server error";
+        const status = isJsonParseError ? 400 : isPayloadTooLarge ? 413 : 500;
+        sendJsonRpcError(res, status, code, message);
     });
 
     return {
@@ -383,6 +436,10 @@ export function createHttpServer(
                     const address = httpServer?.address();
                     if (address && typeof address === "object") {
                         boundPort = address.port;
+                    }
+                    if (httpServer) {
+                        httpServer.keepAliveTimeout = 65_000;
+                        httpServer.headersTimeout = 66_000;
                     }
                     resolve(httpServer!);
                 });
@@ -506,6 +563,8 @@ function registerDaemonControlRoutes(
                 res.status(400).json({ error: "removeOwnerKeys must be an array of owner keys" });
                 return;
             }
+            const project = daemon.registry.getById(id)!;
+            await archiveProjectBindings(project, daemon.bindings.list().filter(binding => (body.removeOwnerKeys as string[]).includes(binding.ownerKey)));
             const removed = await daemon.bindings.removeFromProject(
                 id,
                 body.removeOwnerKeys as string[],
@@ -540,6 +599,10 @@ function registerDaemonControlRoutes(
 
     app.delete("/daemon/projects/:id", async (req, res) => {
         try {
+            if (req.query.forget !== undefined && req.query.forget !== "true" && req.query.forget !== "false") {
+                throw new Error("forget must be true or false");
+            }
+            const forget = req.query.forget === "true";
             const id = req.params.id;
             const byPath =
                 typeof req.query.path === "string" ? req.query.path : undefined;
@@ -548,6 +611,7 @@ function registerDaemonControlRoutes(
                 res.status(404).json({ error: `project not found: ${id}` });
                 return;
             }
+            await archiveProjectBindings(target, daemon.bindings.list());
             const removed = await daemon.registry.deactivateById(target.id);
             // Cleanup is retryable even if a previous attempt already deactivated the project.
             {
@@ -562,7 +626,9 @@ function registerDaemonControlRoutes(
                     bindingsInvalidated: invalidated,
                 });
             }
-            res.json({ ok: true, removed: Boolean(removed), project: removed, projects: daemon.registry.list() });
+            const forgotten = forget ? await daemon.registry.removeInactiveById(target.id) : undefined;
+            if (forgotten) logMcpEvent("daemon_project_unregistered", { project: target.id });
+            res.json({ ok: true, removed: Boolean(removed || forgotten), project: forgotten ?? removed, projects: daemon.registry.list() });
         } catch (error) {
             res.status(400).json({ error: errorMessage(error) });
         }

@@ -11,7 +11,7 @@ const presentation = computed(() => {
     if (state === "succeeded") return { type: "success" as const, label: "已完成", icon: CircleCheck };
     if (state === "cancelled") return { type: "warning" as const, label: "已取消", icon: WarningFilled };
     if (state === "failed") return { type: "danger" as const, label: "未完成", icon: CircleClose };
-    return { type: "info" as const, label: "正在处理", icon: Loading };
+    return { type: "info" as const, label: "执行中", icon: Loading };
 });
 
 function friendlyPhase(message: string): string {
@@ -31,20 +31,35 @@ function friendlyPhase(message: string): string {
 </script>
 
 <template>
-    <el-card v-if="operation" class="operation-panel" shadow="never">
-        <div class="section-heading" style="margin-bottom: 0">
-            <div>
-                <div class="inline-actions">
-                    <el-icon :class="{ 'is-loading': operation.state === 'running' }"><component :is="presentation.icon" /></el-icon>
-                    <strong>{{ friendlyPhase(operation.phase) }}</strong>
-                    <el-tag :type="presentation.type" effect="light">{{ presentation.label }}</el-tag>
+    <div v-if="operation" class="operation-panel-wrapper">
+        <div class="operation-panel-box" :class="`is-${operation.state}`">
+            <div class="operation-panel-top">
+                <div class="operation-phase-indicator">
+                    <el-icon class="phase-icon" :class="{ 'is-loading': operation.state === 'running' }">
+                        <component :is="presentation.icon" />
+                    </el-icon>
+                    <span class="phase-text">{{ friendlyPhase(operation.phase) }}</span>
+                    <el-tag :type="presentation.type" effect="light" class="phase-tag">{{ presentation.label }}</el-tag>
                 </div>
-                <div v-if="operation.messages.length" class="operation-messages">
-                    <div v-for="(message, index) in operation.messages.slice(-8)" :key="`${index}-${message}`">{{ friendlyPhase(message) }}</div>
-                </div>
-                <el-alert v-if="operation.error" class="operation-panel" type="error" :closable="false" :title="friendlyError(operation.error)" />
+                <el-button v-if="operation.state === 'running'" text type="danger" size="small" @click="emit('cancel', operation.id)">
+                    终止操作
+                </el-button>
             </div>
-            <el-button v-if="operation.state === 'running'" text @click="emit('cancel', operation.id)">取消</el-button>
+
+            <div v-if="operation.messages.length" class="operation-terminal-logs">
+                <div v-for="(message, index) in operation.messages.slice(-8)" :key="`${index}-${message}`" class="log-line">
+                    <span class="log-arrow">›</span>
+                    <span class="log-msg">{{ friendlyPhase(message) }}</span>
+                </div>
+            </div>
+
+            <el-alert
+                v-if="operation.error"
+                class="operation-error-banner"
+                type="error"
+                :closable="false"
+                :title="friendlyError(operation.error)"
+            />
         </div>
-    </el-card>
+    </div>
 </template>

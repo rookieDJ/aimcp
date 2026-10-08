@@ -36,6 +36,10 @@ export function createNodeHttpAdapter(
     parsedBody?: unknown,
 ) => Promise<void> {
     return async (req, res, parsedBody) => {
+        if (req.socket) {
+            req.socket.setTimeout(0);
+            req.socket.setKeepAlive(true, 15_000);
+        }
         let finished = false;
         const abortController = new AbortController();
         const abortOnClose = (): void => {

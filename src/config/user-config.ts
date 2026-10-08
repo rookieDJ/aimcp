@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isIP } from "node:net";
 import { join } from "node:path";
 import { expandHomePath } from "./loader.js";
 import { writePrivateFileAtomic } from "../lib/fs/atomic-file.js";
+import { ensurePrivateDirectory } from "../lib/fs/private-directory.js";
 import { normalizeTunnelId } from "../tunnel/id.js";
 
 export interface ClientCapabilitiesConfig {
@@ -81,6 +82,8 @@ export interface UserConfig {
     capabilities?: UserCapabilitiesConfig;
     /** ChatGPT-facing custom UI preferences. */
     ui?: UserUiConfig;
+    /** Persist project use history and client-uploaded chat only after explicit opt-in. */
+    saveConversations?: boolean;
 }
 
 export type UserConfigPatch = Omit<UserConfig, "publicAccess"> & {
@@ -101,7 +104,8 @@ export function getUserLogDir(): string {
 }
 
 export function ensureUserConfigDirs(): void {
-    mkdirSync(getUserLogDir(), { recursive: true });
+    ensurePrivateDirectory(getUserConfigDir());
+    ensurePrivateDirectory(getUserLogDir());
 }
 
 export function loadUserConfig(): UserConfig {
@@ -124,6 +128,10 @@ export function loadUserConfig(): UserConfig {
     }
 }
 
+export function isConversationRecordingEnabled(): boolean {
+    return loadUserConfig().saveConversations === true;
+}
+
 export function saveUserConfig(patch: UserConfigPatch): UserConfig {
     ensureUserConfigDirs();
     const merged: UserConfig = { ...loadUserConfig() };
@@ -144,6 +152,10 @@ export function saveUserConfig(patch: UserConfigPatch): UserConfig {
     }
     if (patch.capabilities !== undefined) {
         merged.capabilities = normalizeCapabilitiesConfig(patch.capabilities);
+    }
+    if (patch.saveConversations !== undefined) {
+        if (typeof patch.saveConversations !== "boolean") throw new Error("saveConversations must be a boolean");
+        merged.saveConversations = patch.saveConversations;
     }
     if (patch.ui !== undefined) {
         merged.ui = normalizeUserUiConfig({ ...(merged.ui ?? {}), ...patch.ui });
@@ -212,6 +224,7 @@ function normalizeUserConfig(raw: Record<string, unknown>): UserConfig {
         "runtime",
         "capabilities",
         "ui",
+        "saveConversations",
     ]);
     const unknownKeys = Object.keys(raw).filter((key) => !supportedKeys.has(key));
     if (unknownKeys.length > 0) {
@@ -243,6 +256,10 @@ function normalizeUserConfig(raw: Record<string, unknown>): UserConfig {
     }
     if (raw.ui !== undefined) {
         config.ui = normalizeUserUiConfig(raw.ui);
+    }
+    if (raw.saveConversations !== undefined) {
+        if (typeof raw.saveConversations !== "boolean") throw new Error("saveConversations must be a boolean");
+        config.saveConversations = raw.saveConversations;
     }
     return config;
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
-    Connection, Expand, Fold, FolderOpened, HomeFilled, InfoFilled, Refresh, Setting, SwitchButton, Tools, VideoPause, VideoPlay,
+    Connection, Expand, Fold, FolderOpened, HomeFilled, InfoFilled, MagicStick, Refresh, Search, Setting, SwitchButton, Tools, VideoPause, VideoPlay,
 } from "@element-plus/icons-vue";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
 import { ElMessage } from "element-plus/es/components/message/index";
@@ -11,32 +11,43 @@ import "element-plus/es/components/message-box/style/css";
 import {
     api, consoleVersion, followOperation, friendlyError,
     type CapabilityConfig, type ConnectionCheck, type ConsoleSnapshot, type ControllerStatus, type Conversation,
-    type OperationSnapshot, type Project, type SetupSummary,
+    type OperationSnapshot, type Project, type SetupSummary, type ConversationRecord,
 } from "./api.js";
 import AddProjectDialog from "./components/AddProjectDialog.vue";
 import HomeView from "./views/HomeView.vue";
 import ProjectsView from "./views/ProjectsView.vue";
 import ConnectView from "./views/ConnectView.vue";
 import MaintenanceView from "./views/MaintenanceView.vue";
+import ParticlesBackground from "./components/ParticlesBackground.vue";
 
 type Page = "home" | "projects" | "connect" | "maintenance";
 type OperationScope = "connect" | "maintenance";
 
 const navigation = [
-    { id: "home" as const, label: "概览", icon: HomeFilled },
-    { id: "projects" as const, label: "项目", icon: FolderOpened },
-    { id: "connect" as const, label: "连接", icon: Connection },
-    { id: "maintenance" as const, label: "系统", icon: Tools },
+    { id: "home" as const, label: "概览", icon: HomeFilled, badge: "01" },
+    { id: "projects" as const, label: "项目", icon: FolderOpened, badge: "02" },
+    { id: "connect" as const, label: "连接", icon: Connection, badge: "03" },
+    { id: "maintenance" as const, label: "系统", icon: Tools, badge: "04" },
 ];
 
 const page = ref<Page>("home");
 const sidebarCollapsed = ref(false);
+const navigationQuery = ref("");
+const particlesEnabled = ref(true);
+try { particlesEnabled.value = localStorage.getItem("aimcp.console.particles") !== "off"; } catch { /* Storage is optional for this visual preference. */ }
+function toggleParticles(): void {
+    particlesEnabled.value = !particlesEnabled.value;
+    try { localStorage.setItem("aimcp.console.particles", particlesEnabled.value ? "on" : "off"); } catch { /* Keep the in-memory preference. */ }
+}
+const filteredNavigation = computed(() => navigation.filter(item => item.label.includes(navigationQuery.value.trim())));
 const addOpen = ref(false);
 const detailsOpen = ref(false);
 const controllerClosed = ref(false);
 const status = ref<ControllerStatus>();
 const projects = ref<Project[]>([]);
 const conversations = ref<Conversation[]>([]);
+const conversationRecords = ref<ConversationRecord[]>([]);
+const unavailableConversationRecords = ref(0);
 const setup = ref<SetupSummary>();
 const connectionResult = ref<ConnectionCheck>();
 const loading = ref(true);
@@ -68,6 +79,8 @@ function applySnapshot(snapshot: ConsoleSnapshot): void {
     status.value = snapshot.status;
     projects.value = snapshot.status.runtime.projects ?? [];
     conversations.value = snapshot.conversations;
+    conversationRecords.value = snapshot.conversationRecords ?? [];
+    unavailableConversationRecords.value = snapshot.unavailableConversationRecords ?? 0;
     if (setup.value) {
         setup.value = {
             ...setup.value,
@@ -274,18 +287,33 @@ function reactivateProject(project: Project): void {
         await refreshLive(false);
     }, "项目已重新启用");
 }
-function removeProject(project: Project): void {
-    void confirmAction(`停用“${project.name}”？`, "项目文件不会被删除，但 MCP 客户端将不能再使用它，已有会话绑定也会清除。", "停用项目", () => runAction(async () => {
+function deactivateProject(project: Project): void {
+    void confirmAction(`停用“${project.name}”？`, "保留项目登记，之后可直接重新启用。客户端将不能使用此项目，现有绑定和该项目运行资源会清除；本地文件与已保存聊天历史保留。", "停用项目", () => runAction(async () => {
         await api(`/api/projects/${encodeURIComponent(project.id)}`, { method: "DELETE", body: {} });
         await refreshLive(false);
     }, "项目已停用"), true);
 }
+function removeProject(project: Project): void {
+    void confirmAction(`移除“${project.name}”的登记？`, "将从已登记项目列表移除，清除其会话绑定并停止该项目的运行资源。本地文件保留，已保存聊天历史也保留。其他项目和 MCP 服务继续运行；以后需重新添加此目录。", "移除登记", () => runAction(async () => {
+        await api(`/api/projects/${encodeURIComponent(project.id)}?forget=true`, { method: "DELETE", body: {} });
+        connectionResult.value = undefined;
+        if (liveRefresh) await liveRefresh;
+        await refreshLive(false);
+    }, "项目登记已移除"), true);
+}
 function cleanupConversations(project: Project, conversationIds: string[]): void {
     if (!conversationIds.length) return;
-    void confirmAction("清除会话绑定？", `将清除 ${conversationIds.length} 个会话的项目选择记录。不会删除客户端会话或项目文件。`, "清除绑定", () => runAction(async () => {
+    void confirmAction("清除会话绑定？", `将解除 ${conversationIds.length} 个会话当前的项目绑定。项目使用历史、已保存聊天内容和本地文件都会保留。`, "清除绑定", () => runAction(async () => {
         await api(`/api/projects/${encodeURIComponent(project.id)}/conversations/cleanup`, { method: "POST", body: { conversationIds } });
         await refreshLive(false);
     }, "会话绑定已清理"), true);
+}
+function deleteConversationRecord(record: ConversationRecord): void {
+    void confirmAction(`删除“${record.title || record.label + ' 会话'}”的本地记录？`, "将永久删除此会话已保存的聊天内容及它在所有项目中的使用历史，无法恢复。当前项目绑定、项目文件和 GPT/Gemini 客户端聊天保留。客户端之后再次发送聊天内容或重新选择项目时，会生成新的记录。", "删除本地记录", () => runAction(async () => {
+        await api(`/api/conversations/${encodeURIComponent(record.id)}`, { method: "DELETE" });
+        if (liveRefresh) await liveRefresh;
+        await refreshLive(false);
+    }, "本地会话记录已删除"), true);
 }
 function discoverCloudflare(): void {
     void startOperation("connect", "/api/setup/cloudflare/discover", { forceLogin: false }, "已读取可用域名", (result) => {
@@ -319,6 +347,14 @@ async function generatePassword(): Promise<string | undefined> {
         await refreshLive(false);
     }, "安全密码已生成并设置");
     return password;
+}
+async function setConversationRecording(enabled: boolean): Promise<void> {
+    await runAction(async () => {
+        const result = await api<{ enabled: boolean }>("/api/conversations/recording", { method: "PUT", body: { enabled } });
+        if (liveRefresh) await liveRefresh;
+        if (setup.value) setup.value = { ...setup.value, config: { ...setup.value.config, saveConversations: result.enabled } };
+        await refreshLive(false);
+    }, enabled ? "已开启本地会话保存" : "已关闭本地会话保存，已有记录保留");
 }
 async function saveCapabilities(config: CapabilityConfig): Promise<void> {
     await runAction(async () => {
@@ -356,71 +392,204 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
             <div class="console-logo">A</div>
             <h1>aimcp 已关闭</h1>
             <p>Runtime 和 Web Console 都已退出，项目与连接配置仍然保留。</p>
-            <code>aimcp open</code>
+            <div class="terminal-pill"><code>aimcp open</code></div>
             <div class="muted small">需要重新管理时，在终端运行上面的命令。</div>
         </div>
     </div>
     <div v-else class="console-shell" :class="{ 'is-sidebar-collapsed': sidebarCollapsed }">
-        <aside class="console-sidebar">
-            <div class="console-brand" :class="{ 'is-collapsed': sidebarCollapsed }">
-                <span class="console-logo">A</span>
-                <div v-if="!sidebarCollapsed" class="console-brand-copy"><span class="console-brand-text">aimcp</span><span class="console-brand-caption">本机 MCP 控制台</span></div>
+        <ParticlesBackground v-if="particlesEnabled" />
+        <header class="console-topbar">
+            <div class="console-brand">
+                <span class="console-brand-text">aimcp<span class="brand-period">.</span></span>
+                <span class="topbar-slash">/</span>
+                <span class="console-brand-caption">本机控制台</span>
             </div>
-            <div v-if="!sidebarCollapsed" class="console-nav-caption">工作区</div>
+            <el-select :model-value="page" class="console-mobile-nav" aria-label="页面导航" @change="handleMenuSelect">
+                <el-option v-for="item in navigation" :key="item.id" :label="item.label" :value="item.id" />
+            </el-select>
+            <div class="topbar-actions">
+                <el-tooltip :content="particlesEnabled ? '关闭粒子效果' : '开启粒子效果'" placement="bottom">
+                    <el-button class="topbar-icon-btn particle-toggle" :class="{ 'is-active': particlesEnabled }" :icon="MagicStick" aria-label="粒子效果" :aria-pressed="particlesEnabled" @click="toggleParticles" />
+                </el-tooltip>
+                <div class="runtime-status-pill" :class="{ 'is-running': running && !loading, 'is-loading': loading }">
+                    <span class="status-pulse-dot"></span>
+                    <span class="status-pill-text">{{ loading ? "正在连接" : running ? "服务运行中" : "服务未启动" }}</span>
+                </div>
+                <el-tooltip content="刷新状态" placement="bottom">
+                    <el-button class="topbar-icon-btn" :icon="Refresh" :loading="refreshing" aria-label="刷新" @click="refreshAll()" />
+                </el-tooltip>
+                <el-tooltip content="运行详情与控制" placement="bottom">
+                    <el-button class="topbar-icon-btn" :icon="InfoFilled" aria-label="技术详情" @click="detailsOpen = true" />
+                </el-tooltip>
+            </div>
+        </header>
+        <aside class="console-sidebar">
+            <div class="sidebar-category-tabs" aria-label="快捷页面">
+                <el-tooltip v-for="item in navigation" :key="item.id" :content="item.label" placement="bottom">
+                    <el-button text :class="{ 'is-selected': page === item.id }" :aria-label="`打开${item.label}`" :aria-current="page === item.id ? 'page' : undefined" @click="navigate(item.id)">
+                        <el-icon><component :is="item.icon" /></el-icon>
+                    </el-button>
+                </el-tooltip>
+            </div>
+            <el-input v-if="!sidebarCollapsed" v-model="navigationQuery" class="navigation-filter" :prefix-icon="Search" placeholder="筛选页面…" aria-label="筛选页面" clearable />
+            <div v-if="!sidebarCollapsed" class="console-nav-caption">工作空间</div>
             <el-menu class="console-menu" :default-active="page" :collapse="sidebarCollapsed" :collapse-transition="false" @select="handleMenuSelect">
-                <el-menu-item v-for="item in navigation" :key="item.id" :index="item.id">
+                <el-menu-item v-for="item in filteredNavigation" :key="item.id" :index="item.id">
                     <el-icon><component :is="item.icon" /></el-icon>
-                    <template #title>{{ item.label }}</template>
+                    <template #title><span class="menu-label-text">{{ item.label }}</span></template>
                 </el-menu-item>
             </el-menu>
+            <p v-if="!sidebarCollapsed && !filteredNavigation.length" class="navigation-empty muted small">没有匹配的页面</p>
+            <div v-if="!sidebarCollapsed" class="sidebar-context">
+                <span class="console-nav-caption">当前工作空间</span>
+                <div><span>可用项目</span><strong>{{ projects.filter(item => item.active).length }}</strong></div>
+                <div><span>会话绑定</span><strong>{{ conversations.length }}</strong></div>
+                <div><span>本地记录</span><strong>{{ conversationRecords.length }}</strong></div>
+            </div>
             <div class="console-sidebar-footer">
-                <div v-if="!sidebarCollapsed" class="sidebar-health"><span class="sidebar-health-light"></span><div><strong>本机控制面在线</strong><span>仅此设备可访问</span></div><span class="sidebar-health-check">✓</span></div>
+                <div v-if="!sidebarCollapsed" class="sidebar-health"><span class="sidebar-health-light"></span><span>本机控制面在线</span></div>
                 <el-tooltip :content="sidebarCollapsed ? '展开导航' : '收起导航'" placement="right">
                     <el-button text class="console-collapse" :aria-label="sidebarCollapsed ? '展开导航' : '收起导航'" @click="sidebarCollapsed = !sidebarCollapsed">
-                        <el-icon size="18"><Expand v-if="sidebarCollapsed" /><Fold v-else /></el-icon>
+                        <el-icon size="16"><Expand v-if="sidebarCollapsed" /><Fold v-else /></el-icon>
                         <span v-if="!sidebarCollapsed">收起导航</span>
                     </el-button>
                 </el-tooltip>
-                <div v-if="!sidebarCollapsed" class="console-version">本机工作区 · v{{ consoleVersion }}</div>
+                <div v-if="!sidebarCollapsed" class="console-version">v{{ consoleVersion }} · 仅本机访问</div>
             </div>
         </aside>
-
-        <main class="console-main">
-            <header class="console-topbar">
-                <el-select :model-value="page" class="console-mobile-nav" @change="handleMenuSelect"><el-option v-for="item in navigation" :key="item.id" :label="item.label" :value="item.id" /></el-select>
-                <div class="topbar-page-heading"><span>aimcp <i>/</i> 本机工作区</span><h2 class="console-title">{{ pageTitle }}</h2></div>
-                <div class="topbar-actions">
-                    <el-tag class="runtime-status-tag" :type="loading ? 'info' : running ? 'success' : 'warning'" effect="light"><span class="runtime-tag-dot" :class="{ 'is-running': running && !loading }"></span>{{ loading ? "正在连接" : running ? "服务运行中" : "服务未启动" }}</el-tag>
-                    <span class="topbar-action-divider"></span>
-                    <el-tooltip content="刷新状态" placement="bottom"><el-button circle text :icon="Refresh" :loading="refreshing" aria-label="刷新" @click="refreshAll()" /></el-tooltip>
-                    <el-tooltip content="运行详情" placement="bottom"><el-button circle text :icon="InfoFilled" aria-label="技术详情" @click="detailsOpen = true" /></el-tooltip>
-                </div>
-            </header>
-
+        <main class="console-main" :aria-label="pageTitle">
             <div class="console-content" :class="`page-${page}`">
-                <el-alert v-if="loadError || syncError" type="error" :closable="false" :title="loadError || syncError" style="margin-bottom: 16px" />
-                <HomeView v-if="page === 'home'" :status="status" :setup="setup" :projects="projects" :conversation-count="conversations.length" :loading="loading" :busy="busy" :result="connectionResult" @navigate="navigate" @add="addOpen = true" @start="startRuntime" @stop="stopRuntime" @check="checkPublicAccess" @repair="navigate('maintenance'); runDoctor(true)" />
-                <ProjectsView v-else-if="page === 'projects'" :projects="projects" :conversations="conversations" :busy="busy" @add="addOpen = true" @reactivate="reactivateProject" @remove="removeProject" @cleanup="cleanupConversations" />
-                <ConnectView v-else-if="page === 'connect'" :setup="setup" :result="connectionResult" :operation="operations.connect" :zones="zones" :busy="busy" :save-password="savePassword" :generate-password="generatePassword" @check="checkPublicAccess" @discover="discoverCloudflare" @apply-cloudflare="applyCloudflare" @apply-external="applyExternal" @cancel-operation="cancelOperation" @result-action="handleResultAction" />
-                <MaintenanceView v-else :setup="setup" :operation="operations.maintenance" :busy="busy" :save-capabilities="saveCapabilities" @doctor="runDoctor" @update="selfUpdate" @cancel-operation="cancelOperation" />
+                <el-alert
+                    v-if="loadError || syncError"
+                    type="error"
+                    :closable="false"
+                    :title="loadError || syncError"
+                    class="console-alert-banner"
+                />
+
+                <HomeView
+                    v-if="page === 'home'"
+                    :status="status"
+                    :setup="setup"
+                    :projects="projects"
+                    :conversation-count="conversations.length"
+                    :loading="loading"
+                    :busy="busy"
+                    :result="connectionResult"
+                    @navigate="navigate"
+                    @add="addOpen = true"
+                    @start="startRuntime"
+                    @stop="stopRuntime"
+                    @check="checkPublicAccess"
+                    @repair="navigate('maintenance'); runDoctor(true)"
+                />
+
+                <ProjectsView
+                    v-else-if="page === 'projects'"
+                    :projects="projects"
+                    :conversations="conversations"
+                    :records="conversationRecords"
+                    :unavailable-records="unavailableConversationRecords"
+                    :recording-enabled="setup?.config.saveConversations ?? false"
+                    :recording-ready="Boolean(setup)"
+                    :busy="busy"
+                    @recording-change="setConversationRecording"
+                    @add="addOpen = true"
+                    @reactivate="reactivateProject"
+                    @remove="removeProject"
+                    @deactivate="deactivateProject"
+                    @cleanup="cleanupConversations"
+                    @delete-record="deleteConversationRecord"
+                />
+
+                <ConnectView
+                    v-else-if="page === 'connect'"
+                    :setup="setup"
+                    :result="connectionResult"
+                    :operation="operations.connect"
+                    :zones="zones"
+                    :busy="busy"
+                    :save-password="savePassword"
+                    :generate-password="generatePassword"
+                    @check="checkPublicAccess"
+                    @discover="discoverCloudflare"
+                    @apply-cloudflare="applyCloudflare"
+                    @apply-external="applyExternal"
+                    @cancel-operation="cancelOperation"
+                    @result-action="handleResultAction"
+                />
+
+                <MaintenanceView
+                    v-else
+                    :setup="setup"
+                    :operation="operations.maintenance"
+                    :busy="busy"
+                    :save-capabilities="saveCapabilities"
+                    @doctor="runDoctor"
+                    @update="selfUpdate"
+                    @cancel-operation="cancelOperation"
+                />
             </div>
         </main>
 
         <AddProjectDialog v-model="addOpen" :busy="busy" :add-project="addProject" />
 
-        <el-drawer v-model="detailsOpen" class="technical-details-drawer" title="技术详情" size="min(480px, 92vw)">
-            <div class="inline-actions technical-action-bar"><el-button :icon="Setting" @click="detailsOpen = false; navigate('maintenance')">系统</el-button><el-button :icon="VideoPlay" :disabled="busy || !running" @click="restartRuntime">重启 Runtime</el-button><el-button type="danger" plain :icon="VideoPause" :disabled="busy || !running" @click="stopRuntime">停止 Runtime</el-button><el-button type="danger" text :icon="SwitchButton" :disabled="busy" @click="shutdownAll">完全关闭</el-button></div>
-            <el-descriptions :column="1" border>
-                <el-descriptions-item label="Controller">运行中 · PID {{ status?.pid ?? "—" }}</el-descriptions-item>
-                <el-descriptions-item label="MCP Runtime">{{ running ? `运行中 · PID ${liveRuntime?.pid ?? "—"}` : "未启动" }}</el-descriptions-item>
-                <el-descriptions-item label="运行方式">{{ liveRuntime?.mode === "local" ? "仅本机" : liveRuntime?.mode ?? "—" }}</el-descriptions-item>
-                <el-descriptions-item label="公网连接">{{ liveRuntime?.publicMcpUrl ? "已连接" : "未连接" }}</el-descriptions-item>
-                <el-descriptions-item label="登录保护">{{ liveRuntime?.auth?.required ? (liveRuntime.auth.configured ? "已启用" : "等待设置密码") : "仅本机，无需登录" }}</el-descriptions-item>
-                <el-descriptions-item label="本机地址"><span class="mono small break-all">{{ liveRuntime?.localUrl ?? "—" }}</span></el-descriptions-item>
-                <el-descriptions-item label="公网 MCP 地址"><span class="mono small break-all">{{ liveRuntime?.publicMcpUrl ?? (setup?.config.publicAccess ? `https://${setup.config.publicAccess.domain}/mcp` : "—") }}</span></el-descriptions-item>
-            </el-descriptions>
-            <div class="section-heading" style="margin-top: 24px"><div><h2>常用命令</h2></div></div>
-            <div class="command-list"><div class="command-row"><code>aimcp status</code><span class="muted small">查看状态</span></div><div class="command-row"><code>aimcp start</code><span class="muted small">启动服务</span></div><div class="command-row"><code>aimcp logs -f</code><span class="muted small">跟随日志</span></div><div class="command-row"><code>aimcp doctor</code><span class="muted small">检查问题</span></div></div>
+        <el-drawer
+            v-model="detailsOpen"
+            class="technical-details-drawer"
+            title="运行详情与控制"
+            size="min(480px, 92vw)"
+        >
+            <div class="inline-actions technical-action-bar">
+                <el-button :icon="Setting" @click="detailsOpen = false; navigate('maintenance')">系统设置</el-button>
+                <el-button :icon="VideoPlay" :disabled="busy || !running" @click="restartRuntime">重启 Runtime</el-button>
+                <el-button type="danger" plain :icon="VideoPause" :disabled="busy || !running" @click="stopRuntime">停止 Runtime</el-button>
+                <el-button type="danger" text :icon="SwitchButton" :disabled="busy" @click="shutdownAll">完全关闭</el-button>
+            </div>
+
+            <div class="technical-meta-card">
+                <div class="meta-row">
+                    <span class="meta-label">Controller</span>
+                    <span class="meta-val"><span class="badge-dot is-online"></span>运行中 (PID {{ status?.pid ?? "—" }})</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">MCP Runtime</span>
+                    <span class="meta-val">{{ running ? `运行中 (PID ${liveRuntime?.pid ?? "—"})` : "未启动" }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">运行模式</span>
+                    <span class="meta-val mono">{{ liveRuntime?.mode === "local" ? "仅本机 (Local)" : liveRuntime?.mode ?? "—" }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">公网连接</span>
+                    <span class="meta-val">{{ liveRuntime?.publicMcpUrl ? "已建立隧道" : "未连接" }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">鉴权状态</span>
+                    <span class="meta-val">{{ liveRuntime?.auth?.required ? (liveRuntime.auth.configured ? "已保护 (OAuth/Password)" : "等待设置密码") : "本机模式 (无须密码)" }}</span>
+                </div>
+                <div class="meta-row meta-row-endpoint">
+                    <span class="meta-label">本机 MCP 地址</span>
+                    <code class="meta-code break-all">{{ liveRuntime?.localUrl ?? "—" }}</code>
+                </div>
+                <div class="meta-row meta-row-endpoint">
+                    <span class="meta-label">公网 MCP 地址</span>
+                    <code class="meta-code break-all">{{ liveRuntime?.publicMcpUrl ?? (setup?.config.publicAccess ? `https://${setup.config.publicAccess.domain}/mcp` : "—") }}</code>
+                </div>
+            </div>
+
+            <div class="section-heading" style="margin-top: 24px">
+                <div>
+                    <h2>常用控制命令</h2>
+                    <p>在终端中可随时操作后台实例</p>
+                </div>
+            </div>
+            <div class="command-list">
+                <div class="command-row"><code>aimcp status</code><span class="muted small">查看运行状态</span></div>
+                <div class="command-row"><code>aimcp start</code><span class="muted small">按保存偏好启动</span></div>
+                <div class="command-row"><code>aimcp logs -f</code><span class="muted small">实时跟随日志</span></div>
+                <div class="command-row"><code>aimcp doctor</code><span class="muted small">全面诊断与排查</span></div>
+            </div>
         </el-drawer>
     </div>
     </el-config-provider>

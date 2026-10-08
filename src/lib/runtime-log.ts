@@ -1,12 +1,23 @@
 import { once } from "node:events";
+import { chmodSync, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import pino, { type Level, type Logger } from "pino";
-import { getUserLogDir } from "../config/user-config.js";
+import { ensureUserConfigDirs, getUserLogDir } from "../config/user-config.js";
+import { ensurePrivateDirectory } from "./fs/private-directory.js";
 
 const LOG_FILE_NAME = "codex-mcp.jsonl";
 const LOG_MAX_VALUE_LENGTH = 1_000;
 const SENSITIVE_FIELD_RE =
     /authorization|cookie|credential|password|private.?key|secret|token/i;
+const SAFE_STRING_FIELDS: Record<string, RegExp> = {
+    invocationId: /^[a-f0-9-]{36}$/,
+    tool: /^[a-z][a-z0-9_]{0,63}$/,
+    project: /^[a-f0-9]{64}$/,
+    mode: /^(local|public)$/,
+    method: /^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/,
+    failure: /^(handler_threw|tool_error)$/,
+    reason: /^(Error|TypeError|SyntaxError|RangeError|AbortError|AggregateError|unknown)$/,
+};
 
 type RuntimeLogValue = string | number | boolean | null | undefined;
 type RuntimeLogFields = Record<string, RuntimeLogValue>;
@@ -40,6 +51,18 @@ export async function initializeRuntimeLog(
     if (state) return logInfo(state.directory);
 
     const directory = options.directory ?? getUserLogDir();
+    ensureUserConfigDirs();
+    ensurePrivateDirectory(directory);
+    // Repair the permissions of earlier log generations before reusing them.
+    for (const name of readdirSync(directory)) {
+        if (!/^codex-mcp(?:\.[\w-]+)*\.jsonl$/.test(name)) continue;
+        const path = join(directory, name);
+        const file = lstatSync(path);
+        if (!file.isFile() || (process.getuid && file.uid !== process.getuid())) {
+            throw new Error("运行日志必须是当前用户拥有的普通文件。");
+        }
+        if (process.platform !== "win32") chmodSync(path, 0o600);
+    }
     const transport = pino.transport({
         target: "pino-roll",
         options: {
@@ -48,6 +71,7 @@ export async function initializeRuntimeLog(
             size: "10m",
             dateFormat: "yyyy-MM-dd",
             mkdir: true,
+            mode: 0o600,
             limit: {
                 count: 7,
                 removeOtherLogFiles: true,
@@ -101,7 +125,7 @@ export function writeRuntimeLog(
     const current = state;
     if (!current?.logger || current.failed) return;
     current.logger[level]({
-        ...sanitizeFields(fields),
+        ...sanitizeRuntimeLogFields(fields),
         event: clipText(event),
     });
 }
@@ -130,11 +154,17 @@ function logInfo(directory: string): RuntimeLogInfo {
     };
 }
 
-function sanitizeFields(fields: RuntimeLogFields): Record<string, RuntimeLogValue> {
+/** Free-form strings are never safe for ordinary diagnostic logs. */
+export function sanitizeRuntimeLogFields(fields: RuntimeLogFields): Record<string, RuntimeLogValue> {
     const safe: Record<string, RuntimeLogValue> = {};
     for (const [key, value] of Object.entries(fields)) {
         if (value === undefined || SENSITIVE_FIELD_RE.test(key)) continue;
-        safe[key] = typeof value === "string" ? clipText(value) : value;
+        if (typeof value === "string") {
+            if (SAFE_STRING_FIELDS[key]?.test(value)) safe[key] = value;
+        } else if (typeof value === "boolean" || value === null ||
+            (typeof value === "number" && Number.isFinite(value))) {
+            safe[key] = value;
+        }
     }
     return safe;
 }

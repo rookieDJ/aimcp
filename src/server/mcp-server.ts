@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import type { ServerConfig } from "../config/loader.js";
 import type { DownstreamMcpHub } from "../downstream/hub.js";
-import { configureToolRegistrationPolicy } from "../lib/tool/log.js";
+import { configureToolProjectSessions, configureToolRegistrationPolicy } from "../lib/tool/log.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { UiPreferences } from "../ui/preferences.js";
 import type { ToolScopeProvider, ToolScopeTryProvider } from "./project-router.js";
@@ -61,6 +61,9 @@ export function buildMultiProjectInstructions(): string {
         "</environment_context>",
         "",
         "- project_control — list/select/current/unbind the conversation project. Never guess or switch without user confirmation.",
+        "- project_control(select) returns project_session. Retain that handle and pass project_session on EVERY subsequent tool call in this conversation, including project_control, summary, and write_stdin. It keeps the binding stable if client session metadata disappears or changes. Never reuse a handle from another conversation.",
+        "- On project_control(select), identify client=chatgpt, gemini or other. Each client/chat needs its own project_session. Respect recording_enabled=false: do not upload chat until the user re-enables local recording; never replay messages from the disabled period. Save user-visible chat locally with project_control(action=record, project_session, messages=[{id,role,content}], title optional): send the user's visible message and your completed visible answer each round, in chronological batches of at most 20 messages / 48 KB. Use stable unique ids, retain ids for retries. Only save content actually available to you; no invented history, hidden reasoning, system prompts, passwords or tokens. The server cannot automatically read the client's whole chat window; do not claim unsent messages were archived.",
+        "- If a project tool reports an unbound conversation, use the retained project_session; if it has expired or was removed, select the previously user-confirmed project again. Do not choose another project automatically.",
         ...CORE_TOOL_GUIDE,
         "- Project-specific Skills and downstream MCPs are resolved from the current binding; use skills_list / mcp_tools after switching projects instead of relying on a daemon-startup snapshot.",
         "",
@@ -78,6 +81,10 @@ export function createMcpServer(options: CreateMcpServerOptions): McpServer {
             : buildServerInstructions(scope().project.root, hub, skills) },
     );
     configureToolRegistrationPolicy(server, allowedTools);
+    if (projectTools) {
+        configureToolProjectSessions(server, (handle) => projectTools.bindings
+            .resolveProjectSession(projectTools.fallbackOwnerId, handle)?.ownerKey);
+    }
     registerAllTools(server, config, { scope, tryScope, projectTools, capabilityScope }, hub, skills, uiPreferences);
     return server;
 }

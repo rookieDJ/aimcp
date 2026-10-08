@@ -39,6 +39,8 @@ export interface ProjectStateFile {
 }
 
 export interface SessionBinding {
+    /** Operational client category; contains no chat content or title. */
+    client?: "chatgpt" | "gemini" | "other";
     ownerKey: string;
     projectId: string;
     boundAt: string;
@@ -195,6 +197,7 @@ export function loadBindingsFile(): SessionBinding[] {
             projectId: item.projectId,
             boundAt: item.boundAt,
             lastSeenAt: item.lastSeenAt,
+            ...(item.client !== undefined ? { client: item.client } : {}),
         }));
     } catch (error) {
         throw new Error(`无法读取有效的会话绑定状态：${path}：${error instanceof Error ? error.message : String(error)}`);
@@ -250,7 +253,7 @@ function isSessionBindingRecord(value: unknown): value is SessionBinding {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const item = value as Record<string, unknown>;
     try {
-        assertExactKeys(item, "binding record", ["ownerKey", "projectId", "boundAt", "lastSeenAt"]);
+        assertExactKeys(item, "binding record", ["ownerKey", "projectId", "boundAt", "lastSeenAt", "client"]);
     } catch {
         return false;
     }
@@ -258,7 +261,8 @@ function isSessionBindingRecord(value: unknown): value is SessionBinding {
         typeof item.ownerKey === "string" && item.ownerKey.length > 0 &&
         typeof item.projectId === "string" && item.projectId.length > 0 &&
         typeof item.boundAt === "string" && item.boundAt.length > 0 &&
-        typeof item.lastSeenAt === "string" && item.lastSeenAt.length > 0
+        typeof item.lastSeenAt === "string" && item.lastSeenAt.length > 0 &&
+        (item.client === undefined || item.client === "chatgpt" || item.client === "gemini" || item.client === "other")
     );
 }
 
