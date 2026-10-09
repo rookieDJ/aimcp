@@ -188,8 +188,10 @@ export class OAuthStateStore {
         redirectUri?: string;
         resource?: URL;
         credentialGeneration: string;
+        signal?: AbortSignal;
     }): Promise<OAuthTokens> {
         return this.mutex.runExclusive(async () => {
+            input.signal?.throwIfAborted();
             const state = structuredClone(this.state);
             const now = Date.now();
             this.prune(state, now);
@@ -231,14 +233,16 @@ export class OAuthStateStore {
         scopes?: string[];
         resource?: URL;
         credentialGeneration: string;
+        signal?: AbortSignal;
     }): Promise<OAuthTokens> {
         return this.mutex.runExclusive(async () => {
+            input.signal?.throwIfAborted();
             const state = structuredClone(this.state);
             const now = Date.now();
             this.prune(state, now);
             const digest = tokenDigest(input.refreshToken);
             const record = state.refreshTokens[digest];
-            if (!record) {
+            if (!record || record.clientId !== input.clientId) {
                 throw new InvalidGrantError("Invalid refresh token");
             }
             if (!record.active) {
@@ -247,7 +251,6 @@ export class OAuthStateStore {
                 throw new InvalidGrantError("Refresh token reuse detected; token family revoked");
             }
             if (
-                record.clientId !== input.clientId ||
                 record.credentialGeneration !== input.credentialGeneration ||
                 record.lastUsedAt + REFRESH_TOKEN_IDLE_TTL_MS <= now ||
                 state.revokedFamilies[record.familyId] !== undefined

@@ -21,6 +21,8 @@ const SAFE_STRING_FIELDS: Record<string, RegExp> = {
     method: /^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/,
     failure: /^(handler_threw|tool_error)$/,
     reason: /^(Error|TypeError|SyntaxError|RangeError|AbortError|AggregateError|unknown)$/,
+    grantKind: /^(authorization_code|refresh_token|other)$/,
+    oauthErrorCode: /^(invalid_request|invalid_client|invalid_grant|invalid_scope|invalid_target|unsupported_grant_type|server_error|temporarily_unavailable)$/,
 };
 
 type RuntimeLogValue = string | number | boolean | null | undefined;

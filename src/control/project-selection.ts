@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { detectProjectDisplayName } from "../projects/identity.js";
 import { expandHomePath } from "../config/loader.js";
 import { loadProjectsFile, type RegisteredProject, type SessionBinding } from "../daemon/state.js";
-import { clientLabel, conversationClientForId } from "../projects/conversations.js";
+import { clientLabel, conversationClientForId, conversationDisplayTitle, readConversation } from "../projects/conversations.js";
 
 const execute = promisify(execFile);
 let pickerOpen = false;
@@ -107,14 +107,18 @@ export function presentBindings(bindings: SessionBinding[]) {
     return bindings.map((binding) => {
         const id = bindingPresentationId(binding.ownerKey);
         let label = binding.client ? `${clientLabel(binding.client)} 会话` : binding.ownerKey.includes("|openai-session:") ? "ChatGPT 会话" : "未识别客户端会话";
+        let displayTitle: string | undefined;
         try {
             const client = conversationClientForId(id);
             if (client) label = `${clientLabel(client)} 会话`;
+            const record = readConversation(id);
+            if (record) displayTitle = conversationDisplayTitle(record);
         } catch { /* History errors must not hide valid routing state. */ }
         return {
             id,
             projectId: binding.projectId,
             label,
+            displayTitle: displayTitle ?? `${label} · ${id.slice(0, 8)}`,
             lastSeenAt: binding.lastSeenAt,
         };
     }).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));

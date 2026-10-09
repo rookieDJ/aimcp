@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { api, friendlyError, type ConversationRecord, type ConversationTranscript } from "../api.js";
 
 const props = defineProps<{ records: ConversationRecord[]; unavailable: number; recordingEnabled: boolean; recordingReady: boolean; busy: boolean }>();
-const emit = defineEmits<{ delete: [record: ConversationRecord]; recordingChange: [enabled: boolean] }>();
+const emit = defineEmits<{ delete: [record: ConversationRecord]; recordingChange: [enabled: boolean]; renamed: [] }>();
 const projectId = defineModel<string>("projectId", { default: "" });
 const client = ref("all");
 const root = ref<HTMLElement>();
@@ -13,6 +13,41 @@ const transcript = ref<ConversationTranscript>();
 const loading = ref(false);
 const error = ref("");
 let request: AbortController | undefined;
+const renameOpen = ref(false);
+const renameRecord = ref<ConversationRecord>();
+const renameName = ref("");
+const renameSaving = ref(false);
+const renameError = ref("");
+let renameRequest: AbortController | undefined;
+const displayTitle = (record: ConversationRecord): string => record.displayTitle || record.title?.trim() || `${record.label} · ${record.projectName} · 会话 ${record.id.slice(0, 8)}`;
+
+function beginRename(record: ConversationRecord): void {
+    if (renameSaving.value) return;
+    renameRecord.value = { ...record };
+    renameName.value = displayTitle(record);
+    renameError.value = "";
+    renameOpen.value = true;
+}
+async function saveName(): Promise<void> {
+    if (renameSaving.value || props.busy || !renameRecord.value) return;
+    const title = renameName.value.trim();
+    if (!title || title.length > 200) { renameError.value = "请输入 1–200 个字符的名称。"; return; }
+    const owner = new AbortController();
+    renameRequest = owner;
+    renameSaving.value = true;
+    renameError.value = "";
+    try {
+        await api(`/api/conversations/${encodeURIComponent(renameRecord.value.id)}/title`, {
+            method: "PUT", body: JSON.stringify({ title, expectedTitle: renameRecord.value.title ?? null }), signal: owner.signal,
+        });
+        if (!owner.signal.aborted && renameRequest === owner) { emit("renamed"); renameOpen.value = false; }
+    } catch (reason) {
+        if (!owner.signal.aborted && renameRequest === owner) renameError.value = friendlyError(reason);
+    } finally { if (renameRequest === owner) { renameRequest = undefined; renameSaving.value = false; } }
+}
+watch(renameOpen, value => {
+    if (!value) { renameRequest?.abort(); renameRequest = undefined; renameSaving.value = false; renameRecord.value = undefined; }
+});
 const projectOptions = computed(() => [...new Map(props.records.map(item => [item.projectId, { id: item.projectId, name: item.projectName, registered: item.registered }])).values()]);
 const visibleRecords = computed(() => props.records.filter(item => (!projectId.value || item.projectId === projectId.value) && (client.value === "all" || item.client === client.value)));
 const formatTime = (time: string): string => new Date(time).toLocaleString("zh-CN");
@@ -65,7 +100,7 @@ watch(() => props.records, records => {
         if (changed && (next.messageCount || next.checkpointAt)) void load(next);
     }
 });
-onBeforeUnmount(() => { request?.abort(); });
+onBeforeUnmount(() => { request?.abort(); renameRequest?.abort(); });
 defineExpose({ showById, focusProject });
 </script>
 
@@ -94,7 +129,7 @@ defineExpose({ showById, focusProject });
         <el-table :data="visibleRecords" class="conversation-history-table" empty-text="暂无此分类的会话记录">
             <el-table-column label="客户端 / 会话" min-width="220">
                 <template #default="{ row }">
-                    <div class="history-session-title"><el-tag :type="row.client === 'gemini' ? 'primary' : row.client === 'chatgpt' ? 'success' : 'info'" size="small">{{ row.label }}</el-tag><strong>{{ row.title || '未命名会话' }}</strong></div>
+                    <div class="history-session-title"><el-tag :type="row.client === 'gemini' ? 'primary' : row.client === 'chatgpt' ? 'success' : 'info'" size="small">{{ row.label }}</el-tag><strong>{{ displayTitle(row) }}</strong></div>
                     <code class="muted small">{{ row.id.slice(0, 12) }}</code>
                 </template>
             </el-table-column>
@@ -102,13 +137,13 @@ defineExpose({ showById, focusProject });
             <el-table-column label="绑定状态" width="120"><template #default="{ row }"><el-tag :type="row.bound ? 'success' : 'info'" effect="plain">{{ row.bound ? '当前绑定' : '历史记录' }}</el-tag></template></el-table-column>
             <el-table-column label="最近使用" min-width="170"><template #default="{ row }">{{ formatTime(row.lastSeenAt) }}<div class="muted small">首次：{{ formatTime(row.firstSeenAt) }}</div></template></el-table-column>
             <el-table-column label="聊天 / 摘要" width="145"><template #default="{ row }"><el-button link type="primary" @click="show(row)">{{ row.messageCount ? `查看 ${row.messageCount} 条消息` : row.checkpointAt ? '查看摘要检查点' : '客户端未发送' }}</el-button><div v-if="row.checkpointAt" class="muted small">摘要：{{ formatTime(row.checkpointAt) }}</div></template></el-table-column>
-            <el-table-column label="操作" width="115" fixed="right"><template #default="{ row }"><el-button text type="danger" :disabled="busy" @click="emit('delete', row)">删除记录</el-button></template></el-table-column>
+            <el-table-column label="操作" width="185" fixed="right"><template #default="{ row }"><el-button text type="primary" :disabled="busy || renameSaving" @click="beginRename(row)">重命名</el-button><el-button text type="danger" :disabled="busy || renameSaving" @click="emit('delete', row)">删除记录</el-button></template></el-table-column>
         </el-table>
         <p class="muted small history-storage-note">保存目录：~/.ai-mcp/conversations/。仅保存客户端通过 MCP 实际发送的可见消息，无法自动读取整个聊天窗口。</p>
 
         <el-drawer v-model="open" title="已保存聊天与摘要" size="min(680px, 94vw)" class="chat-transcript-drawer">
             <template v-if="selected">
-                <div class="section-heading"><div><h2>{{ selected.title || '未命名会话' }}</h2><p>{{ selected.label }} · {{ selected.projectName }} · {{ selected.bound ? '当前绑定' : '历史记录' }}</p></div></div>
+                <div class="section-heading"><div><h2>{{ displayTitle(selected) }}</h2><p>{{ selected.label }} · {{ selected.projectName }} · {{ selected.bound ? '当前绑定' : '历史记录' }}</p></div><el-button :disabled="busy || renameSaving" @click="beginRename(selected)">重命名</el-button></div>
                 <el-alert type="info" :closable="false" title="这里显示客户端已发送的内容；未发送的聊天无法补全。一段会话可能使用过多个项目。" />
                 <p v-if="transcript && transcript.projects.length > 1" class="muted small">使用过：{{ transcript.projects.map(item => item.projectName).join('、') }}</p>
                 <div v-if="error" class="history-error"><el-alert type="error" :closable="false" :title="error" /><el-button :disabled="loading" @click="load(selected)">重试</el-button></div>
@@ -125,8 +160,16 @@ defineExpose({ showById, focusProject });
                         <div class="chat-message-content">{{ message.content }}</div>
                     </article>
                 </div>
-                <template v-if="selected"><el-button type="danger" plain :disabled="busy" class="delete-chat-record-button" @click="emit('delete', selected)">删除此会话的本地记录</el-button></template>
+                <template v-if="selected"><el-button type="danger" plain :disabled="busy || renameSaving" class="delete-chat-record-button" @click="emit('delete', selected)">删除此会话的本地记录</el-button></template>
             </template>
         </el-drawer>
+        <el-dialog v-model="renameOpen" title="重命名本地会话" width="min(480px, 94vw)" append-to-body>
+            <p>仅修改本机记录名称，不会修改 Gemini 或 ChatGPT 中的聊天标题。请勿在名称中填写密码或密钥。</p>
+            <el-form @submit.prevent="saveName">
+                <el-form-item label="会话名称"><el-input v-model="renameName" aria-label="会话名称" :maxlength="200" show-word-limit :disabled="renameSaving" /></el-form-item>
+            </el-form>
+            <el-alert v-if="renameError" type="error" :title="renameError" :closable="false" />
+            <template #footer><el-button @click="renameOpen = false">取消</el-button><el-button type="primary" :loading="renameSaving" :disabled="busy || renameSaving || !renameName.trim()" @click="saveName">保存名称</el-button></template>
+        </el-dialog>
     </section>
 </template>

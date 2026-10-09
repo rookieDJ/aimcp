@@ -43,6 +43,8 @@ test("OAuth writes commit before publishing; failed registration and exchange re
     await assert.rejects(store.exchangeAuthorizationCode(exchange(code)), /disk full/);
     assert.equal(await store.challengeForAuthorizationCode(client.client_id, code), grant.codeChallenge);
     const tokens = await store.exchangeAuthorizationCode(exchange(code));
+    const disconnected = AbortSignal.abort();
+    await assert.rejects(store.exchangeRefreshToken({ ...grant, refreshToken: tokens.refresh_token, signal: disconnected }), /abort/i);
     const reopened = await OAuthStateStore.open(files.path);
     assert.equal((await reopened.verifyAccessToken(tokens.access_token, grant.credentialGeneration)).clientId, client.client_id);
     assert.equal(readFileSync(files.path, "utf8").includes(tokens.access_token), false);
@@ -69,6 +71,42 @@ test("OAuth codes are single use and bind resource, redirect, generation; refres
     await assert.rejects(store.exchangeRefreshToken({ ...grant, refreshToken: tokens.refresh_token }), /reuse/);
     await assert.rejects(store.verifyAccessToken(rotated.access_token, grant.credentialGeneration), /Invalid|revoked/);
     await assert.rejects(store.exchangeRefreshToken({ ...grant, refreshToken: rotated.refresh_token }), /reuse/);
+});
+
+test("a different client cannot consume refresh tokens or revoke a rotated family", async () => {
+    const store = await OAuthStateStore.open(fixture().path);
+    const tokens = await store.exchangeAuthorizationCode(exchange(await store.createAuthorizationCode(grant)));
+    const foreign = { ...grant, clientId: "client-b", refreshToken: tokens.refresh_token };
+    await assert.rejects(store.exchangeRefreshToken(foreign), /Invalid/);
+    const rotated = await store.exchangeRefreshToken({ ...grant, refreshToken: tokens.refresh_token });
+    await assert.rejects(store.exchangeRefreshToken(foreign), /Invalid/);
+    assert.equal((await store.verifyAccessToken(rotated.access_token, grant.credentialGeneration)).clientId, client.client_id);
+    await store.exchangeRefreshToken({ ...grant, refreshToken: rotated.refresh_token });
+});
+
+test("refresh without resource remains bound to this server and cannot revive a foreign-host grant", async t => {
+    const { CodexOAuthProvider } = await import("../dist/auth/provider.js");
+    const { setAdminPassword, getAdminCredentialGeneration } = await import("../dist/auth/password-store.js");
+    await setAdminPassword("isolated-refresh-fixture-123!");
+    const generation = await getAdminCredentialGeneration();
+    const store = await OAuthStateStore.open(fixture().path);
+    const provider = new CodexOAuthProvider(store, issuer, resource);
+    const issue = async target => store.exchangeAuthorizationCode({ ...grant, resource: target, credentialGeneration: generation, code: await store.createAuthorizationCode({ ...grant, resource: target, credentialGeneration: generation }) });
+    const tokens = await issue(resource);
+    const originalAuth = await provider.verifyAccessToken(tokens.access_token);
+    const now = Date.now();
+    const clock = t.mock.method(Date, "now", () => now + 16 * 60 * 1000);
+    await assert.rejects(provider.verifyAccessToken(tokens.access_token), /expired/);
+    const refreshed = await provider.exchangeRefreshToken(client, tokens.refresh_token);
+    const auth = await provider.verifyAccessToken(refreshed.access_token);
+    assert.equal(auth.resource.href, resource.href);
+    assert.deepEqual(auth.scopes, grant.scopes);
+    assert.equal(auth.extra.codexMcpSessionId, originalAuth.extra.codexMcpSessionId);
+    clock.mock.restore();
+    const foreign = await issue(new URL("https://foreign.example/mcp"));
+    await assert.rejects(provider.exchangeRefreshToken(client, foreign.refresh_token), /resource/);
+    await assert.rejects(provider.exchangeRefreshToken(client, foreign.refresh_token, undefined, new URL("https://foreign.example/mcp")), /resource/);
+    await provider.exchangeRefreshToken(client, refreshed.refresh_token, undefined, resource);
 });
 
 test("private_key_jwt verifies signatures, audience, expiry and rejects replay", async () => {
@@ -133,13 +171,17 @@ test("HTTP OAuth authorization, PKCE, refresh, revocation and credential rotatio
     const rpc = token => fetch(`${base}/mcp`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }) });
     assert.equal((await rpc(tokens.access_token)).status, 200);
     assert.equal((await request("/token", tokenForm)).status, 400);
-    const refreshed = await request("/token", { grant_type: "refresh_token", client_id: registered.client_id, refresh_token: tokens.refresh_token, resource: resource.href });
+    const refreshForm = { grant_type: "refresh_token", client_id: registered.client_id, refresh_token: tokens.refresh_token };
+    assert.equal((await request("/token", { ...refreshForm, resource: "https://wrong.example/mcp" })).status, 400);
+    const refreshed = await request("/token", refreshForm);
     assert.equal(refreshed.status, 200);
     const rotated = await refreshed.json();
+    assert.equal((await rpc(rotated.access_token)).status, 200);
     assert.equal((await request("/revoke", { client_id: registered.client_id, token: rotated.refresh_token })).status, 200);
     assert.equal((await rpc(rotated.access_token)).status, 401);
     const second = await request("/token", { ...tokenForm, code: await approve() });
     const secondTokens = await second.json();
     await setAdminPassword("a-new-test-only-password-456!");
     assert.equal((await rpc(secondTokens.access_token)).status, 401);
+    assert.equal((await request("/token", { ...refreshForm, refresh_token: secondTokens.refresh_token })).status, 400);
 });

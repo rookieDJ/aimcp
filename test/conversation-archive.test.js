@@ -42,12 +42,14 @@ test("client-uploaded chat is private, retry-safe, separate per client and retai
     await client.connect(new StreamableHTTPClientTransport(new URL(runtime.getMcpUrl())));
     const call = args => client.callTool({ name: "project_control", arguments: { purpose: "Save visible conversation", ...args } });
     const select = async kind => {
-        const result = await call({ action: "select", project_id: projects[0].id, client: kind });
+        const result = await call({ action: "select", project_id: projects[0].id, client: kind, title: `${kind} 的测试任务` });
         assert.equal(result.isError === true, false);
         return result.structuredContent.project_session;
     };
     const gpt = await select("chatgpt"); const gemini = await select("gemini");
     assert.notEqual(gpt, gemini);
+    assert.equal(readConversation(conversationId(bindings.resolveProjectSession("local:noauth", gpt).ownerKey)).title, "chatgpt 的测试任务");
+    assert.equal(readConversation(conversationId(bindings.resolveProjectSession("local:noauth", gemini).ownerKey)).title, "gemini 的测试任务");
     const messages = [{ id: "u1", role: "user", content: "fixture user visible message\n<img src=x onerror=alert(1)>" }, { id: "a1", role: "assistant", content: "fixture assistant visible answer" }];
     const record = handle => call({ action: "record", project_session: handle, messages, title: "本地测试聊天" });
     const first = await record(gpt);

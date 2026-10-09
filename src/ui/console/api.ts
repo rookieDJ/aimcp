@@ -30,9 +30,9 @@ export interface Project {
     boundSessions?: number;
 }
 
-export interface Conversation { id: string; projectId: string; label: string; lastSeenAt: string; }
+export interface Conversation { id: string; projectId: string; label: string; displayTitle?: string; lastSeenAt: string; }
 export interface ConversationRecord {
-    id: string; client: "chatgpt" | "gemini" | "other"; label: string; title?: string;
+    id: string; client: "chatgpt" | "gemini" | "other"; label: string; title?: string; displayTitle?: string;
     projectId: string; projectName: string; firstSeenAt: string; lastSeenAt: string;
     bound: boolean; registered: boolean; messageCount: number;
     checkpointAt?: string;

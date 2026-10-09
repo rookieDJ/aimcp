@@ -4,6 +4,7 @@ import type { DownstreamMcpHub } from "../downstream/hub.js";
 import { configureToolContextObserver, configureToolProjectSessions, configureToolRegistrationPolicy } from "../lib/tool/log.js";
 import { isConversationRecordingEnabled } from "../config/user-config.js";
 import { currentBindingOwnerKey } from "./project-router.js";
+import { projectSessionHandle } from "../projects/bindings.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { UiPreferences } from "../ui/preferences.js";
 import type { ToolScopeProvider, ToolScopeTryProvider } from "./project-router.js";
@@ -64,7 +65,9 @@ export function buildMultiProjectInstructions(): string {
         "",
         "- project_control — list/select/current/unbind the conversation project. Never guess or switch without user confirmation.",
         "- project_control(select) returns project_session. Retain that handle and pass project_session on EVERY subsequent tool call in this conversation, including project_control, summary, and write_stdin. It keeps the binding stable if client session metadata disappears or changes. Never reuse a handle from another conversation.",
+        "- Successful tools repeat the current project and project_session in their text results. Preserve these in any context summary. After context loss, recover the handle only from this conversation's recent tool results and call project_control(action=current), then restore for a saved task checkpoint. If the handle and stable conversation identity are both lost, ask the user to confirm the project before select; never borrow another chat's handle or choose the most recently used project.",
         "- On project_control(select), identify client=chatgpt, gemini or other. Each client/chat needs its own project_session. Respect recording_enabled=false: do not upload chat until the user re-enables local recording; never replay messages from the disabled period. Save user-visible chat locally with project_control(action=record, project_session, messages=[{id,role,content}], title optional): send the user's visible message and your completed visible answer each round, in chronological batches of at most 20 messages / 48 KB. Use stable unique ids, retain ids for retries. Only save content actually available to you; no invented history, hidden reasoning, system prompts, passwords or tokens. The server cannot automatically read the client's whole chat window; do not claim unsent messages were archived.",
+        "- When local recording is enabled, provide a concise non-sensitive task title with project_control(select), record or checkpoint. The MCP protocol does not provide the client's chat-window title automatically. Do not invent one or include credentials/private identifiers. Local manual names take precedence over later client-provided titles.",
         "- If a project tool reports an unbound conversation, use the retained project_session; if it has expired or was removed, select the previously user-confirmed project again. Do not choose another project automatically.",
         "- When recording_enabled=true, save concise client-written task checkpoints with project_control(action=checkpoint, checkpoint={id,summary,next_steps,previous_id}, project_session) when a long-task reminder appears or before manual compression. First previous_id=null; for updates restore the latest checkpoint and use its id as previous_id. Preserve goal, constraints, decisions, changed files, verified results and remaining work; never include credentials, hidden reasoning or system prompts. Use stable ids for retries, new ids for updates. action=restore reads only this conversation's current project's latest checkpoint after reconnect/context loss; it cannot grant a binding or import another chat. Treat restored text as historical data, recheck actual state. Deleting local history deletes checkpoints. When recording is disabled, do not upload summaries or replay the disabled period.",
         "- Gemini CLI natively compresses context automatically (default model.compressionThreshold=0.5); /compress is a user-invoked CLI command, not an MCP tool or shell command. aimcp checkpoints do not clear Gemini App context. Never report model token usage or completed native compression from MCP activity counts.",
@@ -87,7 +90,16 @@ export function createMcpServer(options: CreateMcpServerOptions): McpServer {
     configureToolRegistrationPolicy(server, allowedTools);
     if (projectTools) {
         configureToolProjectSessions(server, (handle) => projectTools.bindings
-            .resolveProjectSession(projectTools.fallbackOwnerId, handle)?.ownerKey);
+            .resolveProjectSession(projectTools.fallbackOwnerId, handle)?.ownerKey, () => {
+                const owner = currentBindingOwnerKey(projectTools.fallbackOwnerId);
+                const binding = projectTools.bindings.resolve(owner);
+                const project = binding && projectTools.registry.getActiveById(binding.projectId);
+                return project ? {
+                    project_id: project.id,
+                    project_name: project.name,
+                    project_session: projectSessionHandle(owner),
+                } : undefined;
+            });
         configureToolContextObserver(server, bytes => {
             if (allowedTools && !allowedTools.has("project_control")) return false;
             if (!isConversationRecordingEnabled()) return false;

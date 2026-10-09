@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
@@ -24,6 +24,10 @@ test("Google callbacks and project reads work with Mac and Windows browser heade
     writeFileSync(join(home, "marker.txt"), "isolated Gemini project fixture");
     const registry = new ProjectRegistry({ projects: [], save: async () => {} });
     const project = await registry.register({ path: home });
+    const secondPath = join(home, "second-project");
+    mkdirSync(secondPath);
+    writeFileSync(join(secondPath, "marker.txt"), "second Gemini project fixture");
+    const secondProject = await registry.register({ path: secondPath });
     const server = createHttpServer(loadConfig({ projectRoot: home, userConfig: { port: 0, publicAccess: { kind: "external", domain: "gemini.example.com" } } }), {
         daemon: { registry, bindings: new BindingStore({ bindings: [], save: async () => {} }), runtimes: new ProjectRuntimeManager(), controlToken: "gemini-fixture-control", runtimeIntent: { local: false, noTunnel: true, tunnelLogs: false }, tunnelStatus: () => ({ running: false, state: "off" }), onShutdown: async () => {} },
     });
@@ -59,26 +63,40 @@ test("Google callbacks and project reads work with Mac and Windows browser heade
         const issued = await exchange({});
         assert.equal(issued.status, 200);
         const tokens = await issued.json();
+        let accessToken = tokens.access_token;
         assert.equal((await exchange({})).status, 400);
         const rpc = async (method, params) => {
-            const response = await request("/mcp", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${tokens.access_token}`, origin: "https://gemini.google.com", "user-agent": ua }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+            const response = await request("/mcp", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${accessToken}`, origin: "https://gemini.google.com", "user-agent": ua }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
             assert.equal(response.status, 200);
             const text = await response.text();
             return JSON.parse(text.startsWith("event:") ? text.split("\n").find(line => line.startsWith("data: ")).slice(6) : text).result;
         };
         const tools = await rpc("tools/list", {});
         assert.ok(tools.tools.some(tool => tool.name === "read"));
+        assert.equal(tools.tools.find(tool => tool.name === "read").annotations.readOnlyHint, true);
+        assert.equal(tools.tools.find(tool => tool.name === "apply_patch").annotations.readOnlyHint, false);
         const selected = await rpc("tools/call", { name: "project_control", arguments: { action: "select", project_id: project.id, client: "gemini", purpose: "Verify Gemini binding" } });
         assert.notEqual(selected.isError, true);
         const read = await rpc("tools/call", { name: "read", arguments: { path: "marker.txt", project_session: selected.structuredContent.project_session, purpose: "Verify Gemini project read" } });
         assert.notEqual(read.isError, true);
         assert.match(read.structuredContent.text, /isolated Gemini project fixture/);
+        const switched = await rpc("tools/call", { name: "project_control", arguments: { action: "select", project_id: secondProject.id, client: "gemini", project_session: selected.structuredContent.project_session, force: true, purpose: "User confirmed fixture switch" } });
+        assert.notEqual(switched.isError, true);
+        assert.equal(switched.structuredContent.project_session, selected.structuredContent.project_session);
+        const refresh = await request("/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", client_id: client.client_id, refresh_token: tokens.refresh_token }) });
+        assert.equal(refresh.status, 200);
+        const refreshed = await refresh.json();
+        accessToken = refreshed.access_token;
+        const afterRefresh = await rpc("tools/call", { name: "read", arguments: { path: "marker.txt", project_session: switched.structuredContent.project_session, purpose: "Read after project switch and OAuth refresh" } });
+        assert.notEqual(afterRefresh.isError, true);
+        assert.match(afterRefresh.structuredContent.text, /second Gemini project fixture/);
         const invalidOrigin = await request("/authorize", { method: "POST", headers: { origin: "https://foreign.example", "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ ...form, password }) });
         assert.equal(invalidOrigin.status, 403);
         const diagnostics = await new DaemonControlClient(server.getPort(), "gemini-fixture-control").oauthDiagnostics();
         assert.ok(diagnostics.events.some(event => event.endpoint === "authorize" && event.outcome === "approved" && event.platform === platform));
         assert.ok(diagnostics.events.some(event => event.endpoint === "token" && event.status === 200));
         assert.ok(diagnostics.events.some(event => event.endpoint === "mcp" && event.status === 200));
+        assert.ok(diagnostics.events.some(event => event.endpoint === "token" && event.grantKind === "refresh_token" && event.resourceProvided === false && event.status === 200));
         const diagnosticText = JSON.stringify(diagnostics);
         for (const sensitive of [password, state, tokenForm.code, tokens.access_token, tokens.refresh_token, client.client_id, "marker.txt", "googleusercontent.com", ua]) assert.equal(diagnosticText.includes(sensitive), false);
     }

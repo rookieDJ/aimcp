@@ -8,6 +8,7 @@ import { writePrivateFileAtomic } from "../lib/fs/atomic-file.js";
 import { ensurePrivateDirectory } from "../lib/fs/private-directory.js";
 
 export const conversationClientSchema = z.enum(["chatgpt", "gemini", "other"]);
+export const conversationTitleSchema = z.string().trim().min(1).max(200);
 export const chatMessageSchema = z.object({
     id: z.string().min(1).max(128),
     role: z.enum(["user", "assistant"]),
@@ -25,6 +26,7 @@ const storedCheckpointSchema = contextCheckpointSchema.extend({ projectId: z.str
 const archiveSchema = z.object({
     schemaVersion: z.literal(1), id: z.string().regex(/^[a-f0-9]{32}$/), client: conversationClientSchema,
     title: z.string().max(200).optional(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
+    titleSource: z.enum(["client", "manual"]).optional(),
     projects: z.array(projectUseSchema), messages: z.array(chatMessageSchema),
     checkpoints: z.array(storedCheckpointSchema).max(100).optional(),
 }).strict();
@@ -32,6 +34,11 @@ export type ConversationClient = z.infer<typeof conversationClientSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ConversationArchive = z.infer<typeof archiveSchema>;
 export type ContextCheckpoint = z.infer<typeof contextCheckpointSchema>;
+
+/** A display fallback, not a guessed client chat title or a persisted message preview. */
+export function conversationDisplayTitle(record: Pick<ConversationArchive, "id" | "client" | "title" | "projects">): string {
+    return record.title?.trim() || `${clientLabel(record.client)} · ${record.projects[0]?.projectName || "项目"} · 会话 ${record.id.slice(0, 8)}`;
+}
 
 /** Archives never restore permissions: callers must first resolve their live binding. */
 export function readContextCheckpoint(ownerKey: string, projectId: string) {
@@ -134,6 +141,24 @@ export async function deleteConversation(id: string, fallbackClient: Conversatio
     });
 }
 
+/** Local explicit metadata edit. Never resurrect deleted history or upload chat. */
+export async function renameConversation(id: string, title: string, expectedTitle: string | null): Promise<{ title: string }> {
+    const name = conversationTitleSchema.parse(title);
+    if (expectedTitle !== null) z.string().max(200).parse(expectedTitle);
+    return await withConversationLock(id, () => {
+        const record = readConversation(id);
+        if (!record) throw new Error("会话记录已删除或不存在，请刷新列表。");
+        if ((record.title ?? null) !== expectedTitle) throw new Error("会话名称已被其他操作修改，请刷新后重新命名。");
+        record.title = name;
+        record.titleSource = "manual";
+        record.updatedAt = new Date().toISOString();
+        const content = JSON.stringify(archiveSchema.parse(record), null, 2);
+        if (Buffer.byteLength(content) > MAX_ARCHIVE_BYTES) throw new Error("此会话记录已达本地保存上限，无法继续命名。");
+        writePrivateFileAtomic(archivePath(id), content);
+        return { title: name };
+    });
+}
+
 export function assertConversationClient(ownerKey: string, requested?: ConversationClient, boundClient?: ConversationClient): ConversationClient {
     const priorClient = conversationClientForId(conversationId(ownerKey));
     const inferred: ConversationClient = ownerKey.includes("|openai-session:") ? "chatgpt" : "other";
@@ -183,7 +208,10 @@ export async function saveConversationUse(ownerKey: string, project: RegisteredP
                 record.checkpoints = [...checkpoints.filter(item => item.projectId !== project.id), { ...checkpoint, projectId: project.id, savedAt: now }];
             }
         }
-        if (options.title !== undefined) record.title = z.string().min(1).max(200).parse(options.title);
+        if (options.title !== undefined) {
+            const title = conversationTitleSchema.parse(options.title);
+            if (record.titleSource !== "manual") { record.title = title; record.titleSource = "client"; }
+        }
         const use = record.projects.find(item => item.projectId === project.id);
         const lastSeenAt = options.lastSeenAt ?? now;
         if (use) { use.projectName = project.name; use.lastSeenAt = lastSeenAt > use.lastSeenAt ? lastSeenAt : use.lastSeenAt; }
@@ -229,7 +257,7 @@ export function listConversationRecords(bindings: SessionBinding[], projects: Re
     }
     return { unavailable, records: records.flatMap(record => record.projects.map(use => {
         const binding = bindings.find(item => conversationId(item.ownerKey) === record.id && item.projectId === use.projectId);
-        return { id: record.id, client: record.client, label: clientLabel(record.client), title: record.title,
+        return { id: record.id, client: record.client, label: clientLabel(record.client), title: record.title, displayTitle: conversationDisplayTitle(record),
             ...use, bound: Boolean(binding), registered: projects.some(project => project.id === use.projectId),
             lastSeenAt: recordingEnabled && binding && binding.lastSeenAt > use.lastSeenAt ? binding.lastSeenAt : use.lastSeenAt,
             messageCount: record.messages.length, checkpointAt: record.checkpoints?.find(item => item.projectId === use.projectId)?.savedAt };

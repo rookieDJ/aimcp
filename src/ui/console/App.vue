@@ -500,6 +500,7 @@ function handleResultAction(action: "start" | "connect" | "projects" | "repair")
                     @deactivate="deactivateProject"
                     @cleanup="cleanupConversations"
                     @delete-record="deleteConversationRecord"
+                    @renamed="refreshAll()"
                 />
 
                 <ConnectView

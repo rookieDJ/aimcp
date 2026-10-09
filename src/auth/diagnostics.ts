@@ -2,6 +2,29 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { writeRuntimeLog } from "../lib/runtime-log.js";
 
 const MAX_EVENTS = 64;
+const OAUTH_ERROR_CODES = new Set([
+    "invalid_request", "invalid_client", "invalid_grant", "invalid_scope",
+    "invalid_target", "unsupported_grant_type", "server_error", "temporarily_unavailable",
+]);
+interface TokenDiagnostic {
+    grantKind?: "authorization_code" | "refresh_token" | "other";
+    resourceProvided?: boolean;
+    oauthErrorCode?: string;
+}
+const tokenDiagnostics = new WeakMap<ServerResponse, TokenDiagnostic>();
+
+/** Retain only fixed categories; never copy bodies, descriptions or identifiers. */
+export function noteOAuthTokenRequest(res: ServerResponse, grantType: unknown, resource: unknown): void {
+    tokenDiagnostics.set(res, {
+        grantKind: grantType === "authorization_code" || grantType === "refresh_token" ? grantType : "other",
+        resourceProvided: typeof resource === "string" && resource.length > 0,
+    });
+}
+
+export function noteOAuthError(res: ServerResponse, code: string): void {
+    const diagnostic = tokenDiagnostics.get(res);
+    if (diagnostic && OAUTH_ERROR_CODES.has(code)) diagnostic.oauthErrorCode = code;
+}
 const ENDPOINTS: Record<string, OAuthDiagnosticEvent["endpoint"]> = {
     "/mcp": "mcp",
     "/.well-known/oauth-protected-resource": "resource_metadata",
@@ -13,7 +36,7 @@ const ENDPOINTS: Record<string, OAuthDiagnosticEvent["endpoint"]> = {
     "/revoke": "revoke",
 };
 
-export interface OAuthDiagnosticEvent {
+export interface OAuthDiagnosticEvent extends TokenDiagnostic {
     at: string;
     endpoint: "mcp" | "resource_metadata" | "authorization_metadata" | "register" | "authorize" | "token" | "revoke";
     method: "GET" | "HEAD" | "POST" | "OPTIONS" | "OTHER";
@@ -66,11 +89,13 @@ export class OAuthDiagnostics {
                 at: new Date().toISOString(), endpoint, method, status: res.statusCode,
                 outcome: aborted ? "aborted" : endpoint === "mcp" && res.statusCode === 401 ? "challenge" : res.statusCode >= 400 || redirectRejected ? "rejected" : approved ? "approved" : "responded",
                 platform, browser,
+                ...(endpoint === "token" ? tokenDiagnostics.get(res) : undefined),
             };
             this.events.push(event);
             if (this.events.length > MAX_EVENTS) this.events.shift();
             writeRuntimeLog(event.status >= 500 ? "error" : "info", "oauth_http_response", {
                 endpoint, method, status: event.status, outcome: event.outcome, platform, browser,
+                grantKind: event.grantKind, resourceProvided: event.resourceProvided, oauthErrorCode: event.oauthErrorCode,
             });
         };
         res.once("finish", () => record(false));
@@ -84,5 +109,5 @@ export function describeOAuthDiagnostics(snapshot: OAuthDiagnosticsSnapshot): st
         register: "客户端注册", authorize: "授权页面", token: "令牌交换", revoke: "撤销授权",
     };
     if (!snapshot.events.length) return "本次服务启动后尚未收到连接请求。";
-    return snapshot.events.slice(-8).map(event => `${event.at.slice(11, 19)} UTC ${names[event.endpoint]} ${event.method} ${event.status}${event.outcome === "approved" ? "（已授权）" : event.outcome === "challenge" ? "（需要授权）" : event.outcome === "rejected" ? "（已拒绝）" : event.outcome === "aborted" ? "（中断）" : ""}${event.platform === "macos" ? " [Mac]" : event.platform === "windows" ? " [Windows]" : ""}`).join("；");
+    return snapshot.events.slice(-8).map(event => `${event.at.slice(11, 19)} UTC ${names[event.endpoint]} ${event.method} ${event.status}${event.outcome === "approved" ? "（已授权）" : event.outcome === "challenge" ? "（需要授权）" : event.outcome === "rejected" ? "（已拒绝）" : event.outcome === "aborted" ? "（中断）" : ""}${event.grantKind === "refresh_token" ? " [续期]" : event.grantKind === "authorization_code" ? " [授权码]" : ""}${event.oauthErrorCode ? ` [${event.oauthErrorCode}]` : ""}${event.platform === "macos" ? " [Mac]" : event.platform === "windows" ? " [Windows]" : ""}`).join("；");
 }

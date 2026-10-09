@@ -25,7 +25,7 @@ import { runSelfUpdate } from "../doctor/update.js";
 import { findRipgrep } from "../lib/search/ripgrep.js";
 import { ensureManagedTool } from "../managed-tools/install.js";
 import { BindingStore } from "../projects/bindings.js";
-import { archiveProjectBindings, deleteConversation, listConversationRecords, readConversation } from "../projects/conversations.js";
+import { archiveProjectBindings, conversationTitleSchema, deleteConversation, listConversationRecords, readConversation, renameConversation, saveConversationUse } from "../projects/conversations.js";
 import { canonicalProjectPath, detectProjectDisplayName } from "../projects/identity.js";
 import { ProjectRegistry } from "../projects/registry.js";
 import { readRecentLogLines } from "../lib/log-reader.js";
@@ -83,6 +83,17 @@ export function getConversationTranscript(id: string) {
     const record = readConversation(id);
     if (!record) throw new Error("此会话尚未收到客户端发送的聊天内容。");
     return record;
+}
+
+export async function renameConversationHistory(id: string, title: string, expectedTitle: string | null) {
+    title = conversationTitleSchema.parse(title);
+    if (!readConversation(id) && isConversationRecordingEnabled()) {
+        if (expectedTitle !== null) throw new Error("会话名称已被其他操作修改，请刷新后重新命名。");
+        const binding = loadBindingsFile().find(item => bindingPresentationId(item.ownerKey) === id);
+        const project = binding && loadProjectsFile().find(item => item.id === binding.projectId);
+        if (binding && project) await saveConversationUse(binding.ownerKey, project, { client: binding.client, boundAt: binding.boundAt, preserveDeletion: true });
+    }
+    return await renameConversation(id, title, expectedTitle);
 }
 
 export interface CleanupProjectConversationsResult extends ProjectConversationsResult {

@@ -21,6 +21,7 @@ import {
     InvalidTokenError,
 } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import { safeHttpGet } from "../lib/http/safe-http.js";
+import { fetchOAuthDocument, OAuthRemoteUnavailableError } from "./remote-fetch.js";
 import { writeRuntimeLog } from "../lib/runtime-log.js";
 import { printCompactLog } from "../lib/util/terminal.js";
 import {
@@ -62,6 +63,7 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
     constructor(
         private readonly state: OAuthStateStore,
         private readonly issuerUrl: URL,
+        private readonly network: { fetch?: typeof safeHttpGet } = {},
     ) {}
 
     async getClient(clientId: string): Promise<OAuthClientInformationFull | undefined> {
@@ -149,14 +151,14 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
         }
 
         try {
-            const response = await safeHttpGet(url, {
+            const response = await fetchOAuthDocument(url, {
                 httpsOnly: true,
                 maxBytes: CIMD_MAX_BYTES,
-                timeoutMs: 120_000,
+                timeoutMs: 15_000,
                 maxRedirects: 2,
                 headers: { Accept: "application/json" },
                 proxyByHostname: url.hostname.toLowerCase() === "chatgpt.com",
-            });
+            }, this.network.fetch);
             if (response.status !== 200) {
                 logOAuthWarning(
                     "oauth_cimd_http_error",
@@ -181,6 +183,7 @@ export class CodexClientsStore implements OAuthRegisteredClientsStore {
                 expiresAt: Date.now() + resolveCimdCacheTtl(response.headers),
             };
         } catch (error) {
+            if (error instanceof OAuthRemoteUnavailableError) throw error;
             logOAuthWarning(
                 "oauth_cimd_fetch_failed",
                 "OAuth 客户端元数据请求失败",
@@ -199,9 +202,10 @@ export class CodexOAuthProvider implements OAuthServerProvider {
         private readonly state: OAuthStateStore,
         private readonly issuerUrl: URL,
         private readonly resourceUrl: URL,
+        network: { fetch?: typeof safeHttpGet } = {},
     ) {
-        this.clientsStore = new CodexClientsStore(state, issuerUrl);
-        this.privateKeyJwt = new PrivateKeyJwtVerifier(issuerUrl);
+        this.clientsStore = new CodexClientsStore(state, issuerUrl, network);
+        this.privateKeyJwt = new PrivateKeyJwtVerifier(issuerUrl, network);
     }
 
     async authenticateClient(input: Record<string, unknown>): Promise<OAuthClientInformationFull> {
@@ -244,6 +248,7 @@ export class CodexOAuthProvider implements OAuthServerProvider {
         try {
             await this.privateKeyJwt.verify(client, assertion);
         } catch (error) {
+            if (error instanceof OAuthRemoteUnavailableError) throw error;
             logOAuthWarning(
                 "oauth_private_key_jwt_rejected",
                 "OAuth private_key_jwt 已拒绝",
@@ -335,6 +340,7 @@ export class CodexOAuthProvider implements OAuthServerProvider {
         _codeVerifier?: string,
         redirectUri?: string,
         resource?: URL,
+        signal?: AbortSignal,
     ): Promise<OAuthTokens> {
         const credentialGeneration = await requireCredentialGeneration();
         return this.state.exchangeAuthorizationCode({
@@ -343,6 +349,7 @@ export class CodexOAuthProvider implements OAuthServerProvider {
             redirectUri,
             resource,
             credentialGeneration,
+            signal,
         });
     }
 
@@ -351,15 +358,22 @@ export class CodexOAuthProvider implements OAuthServerProvider {
         refreshToken: string,
         scopes?: string[],
         resource?: URL,
+        signal?: AbortSignal,
     ): Promise<OAuthTokens> {
         const normalizedScopes = scopes ? normalizeScopes(scopes) : undefined;
         const credentialGeneration = await requireCredentialGeneration();
+        if (resource && resource.href !== this.resourceUrl.href) {
+            throw new InvalidTargetError("The requested resource does not match this MCP server");
+        }
         return this.state.exchangeRefreshToken({
             clientId: client.client_id,
             refreshToken,
             scopes: normalizedScopes,
-            resource,
+            // Some OAuth clients omit resource on refresh. Always require the
+            // stored grant to match this server, even when the client omits it.
+            resource: resource ?? this.resourceUrl,
             credentialGeneration,
+            signal,
         });
     }
 

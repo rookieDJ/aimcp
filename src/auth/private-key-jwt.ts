@@ -7,6 +7,7 @@ import {
     type JWTPayload,
 } from "jose";
 import { safeHttpGet } from "../lib/http/safe-http.js";
+import { fetchOAuthDocument } from "./remote-fetch.js";
 
 const ASSERTION_MAX_BYTES = 16 * 1024;
 const ASSERTION_MAX_LIFETIME_SECONDS = 5 * 60;
@@ -32,7 +33,7 @@ export class PrivateKeyJwtVerifier {
     private readonly jwksCache = new Map<string, CachedJwks>();
     private readonly replayCache = new Map<string, number>();
 
-    constructor(private readonly issuerUrl: URL) {}
+    constructor(private readonly issuerUrl: URL, private readonly network: { fetch?: typeof safeHttpGet } = {}) {}
 
     /**
      * Extract the client identifier from an unverified assertion only for client lookup.
@@ -159,14 +160,14 @@ export class PrivateKeyJwtVerifier {
             return structuredClone(cached.jwks);
         }
 
-        const response = await safeHttpGet(url, {
+        const response = await fetchOAuthDocument(url, {
             httpsOnly: true,
             maxBytes: JWKS_MAX_BYTES,
-            timeoutMs: 120_000,
+            timeoutMs: 15_000,
             maxRedirects: 2,
             headers: { Accept: "application/json" },
             proxyByHostname: url.hostname.toLowerCase() === "chatgpt.com",
-        });
+        }, this.network.fetch);
         if (response.status !== 200) {
             throw new Error(`jwks_uri returned HTTP ${response.status}`);
         }

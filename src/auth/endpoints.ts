@@ -12,6 +12,8 @@ import {
 import { writeRuntimeLog } from "../lib/runtime-log.js";
 import { printCompactLog } from "../lib/util/terminal.js";
 import type { CodexOAuthProvider } from "./provider.js";
+import { noteOAuthTokenRequest, noteOAuthError } from "./diagnostics.js";
+import { OAuthRemoteUnavailableError } from "./remote-fetch.js";
 
 const TokenBaseSchema = z.object({ grant_type: z.string().min(1) });
 const AuthorizationCodeSchema = z.object({
@@ -39,6 +41,11 @@ export function createTokenEndpoint(provider: CodexOAuthProvider): RequestHandle
     router.use(express.urlencoded({ extended: false, limit: "32kb" }));
     router.post("/", async (req, res) => {
         setNoStore(res);
+        const body = asRecord(req.body);
+        noteOAuthTokenRequest(res, body.grant_type, body.resource);
+        const controller = new AbortController();
+        const onClose = () => { if (!res.writableFinished) controller.abort(); };
+        res.once("close", onClose);
         try {
             const base = TokenBaseSchema.safeParse(req.body);
             if (!base.success) throw new InvalidRequestError(base.error.message);
@@ -62,6 +69,7 @@ export function createTokenEndpoint(provider: CodexOAuthProvider): RequestHandle
                         undefined,
                         redirect_uri,
                         resource ? new URL(resource) : undefined,
+                        controller.signal,
                     );
                     res.status(200).json(tokens);
                     return;
@@ -76,6 +84,7 @@ export function createTokenEndpoint(provider: CodexOAuthProvider): RequestHandle
                         refresh_token,
                         scopes,
                         resource ? new URL(resource) : undefined,
+                        controller.signal,
                     );
                     res.status(200).json(tokens);
                     return;
@@ -86,8 +95,8 @@ export function createTokenEndpoint(provider: CodexOAuthProvider): RequestHandle
                     );
             }
         } catch (error) {
-            sendOAuthError(res, error);
-        }
+            if (!controller.signal.aborted) sendOAuthError(res, error);
+        } finally { res.removeListener("close", onClose); }
     });
     return router;
 }
@@ -145,7 +154,9 @@ function setNoStore(res: express.Response): void {
 
 function sendOAuthError(res: express.Response, error: unknown): void {
     if (error instanceof OAuthError) {
-        const status = error instanceof ServerError ? 500 : 400;
+        noteOAuthError(res, error.toResponseObject().error);
+        const status = error instanceof OAuthRemoteUnavailableError ? 503 : error instanceof ServerError ? 500 : 400;
+        if (status === 503) res.setHeader("Retry-After", "5");
         res.status(status).json(error.toResponseObject());
         return;
     }

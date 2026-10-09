@@ -14,6 +14,7 @@ const emit = defineEmits<{
     deactivate: [project: Project];
     cleanup: [project: Project, ids: string[]];
     deleteRecord: [record: ConversationRecord];
+    renamed: [];
 }>();
 
 const drawerOpen = ref(false);
@@ -220,7 +221,7 @@ watch(() => props.projects, (items) => {
             </div>
         </SpotlightCard>
 
-        <ConversationHistory ref="history" v-model:project-id="historyProjectId" :records="records" :unavailable="unavailableRecords" :recording-enabled="recordingEnabled" :recording-ready="recordingReady" :busy="busy" @recording-change="emit('recordingChange', $event)" @delete="emit('deleteRecord', $event)" />
+        <ConversationHistory ref="history" v-model:project-id="historyProjectId" :records="records" :unavailable="unavailableRecords" :recording-enabled="recordingEnabled" :recording-ready="recordingReady" :busy="busy" @recording-change="emit('recordingChange', $event)" @delete="emit('deleteRecord', $event)" @renamed="emit('renamed')" />
 
         <p v-if="conversations.length" class="projects-footnote muted small">
             会话编号只用于区分各客户端对话的项目选择绑定，不会影响客户端会话的实际连接状态。
@@ -281,7 +282,7 @@ watch(() => props.projects, (items) => {
                             <el-icon><ChatDotRound /></el-icon>
                         </div>
                         <div class="conversation-info">
-                            <div class="conversation-title">{{ item.label }} · {{ item.id.slice(0, 8) }}</div>
+                            <div class="conversation-title">{{ item.displayTitle || `${item.label} · ${item.id.slice(0, 8)}` }}</div>
                             <div class="conversation-time muted small">最近交互：{{ new Date(item.lastSeenAt).toLocaleString("zh-CN") }}</div>
                             <el-button link type="primary" :disabled="!hasRecord(item.id)" @click="showChat(item.id)">{{ hasRecord(item.id) ? '查看本地聊天记录' : '暂无本地记录' }}</el-button>
                         </div>

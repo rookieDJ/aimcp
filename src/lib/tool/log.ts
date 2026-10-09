@@ -13,6 +13,12 @@ import { runWithToolInvocationContext, setToolProjectOwner } from "./context.js"
 const TOOL_NAME_WIDTH = 18;
 const toolRegistrationPolicies = new WeakMap<McpServer, ReadonlySet<string>>();
 const projectSessionResolvers = new WeakMap<McpServer, (handle: string) => string | undefined>();
+interface ProjectSessionContext {
+    project_id: string;
+    project_name: string;
+    project_session: string;
+}
+const currentProjectSessions = new WeakMap<McpServer, () => ProjectSessionContext | undefined>();
 const contextObservers = new WeakMap<McpServer, (bytes: number) => boolean>();
 
 export function configureToolContextObserver(server: McpServer, observe: (bytes: number) => boolean): void {
@@ -22,8 +28,11 @@ export function configureToolContextObserver(server: McpServer, observe: (bytes:
 export function configureToolProjectSessions(
     server: McpServer,
     resolve: (handle: string) => string | undefined,
+    current?: () => ProjectSessionContext | undefined,
 ): void {
     projectSessionResolvers.set(server, resolve);
+    if (current) currentProjectSessions.set(server, current);
+    else currentProjectSessions.delete(server);
 }
 
 export function isToolLogEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -235,6 +244,16 @@ export function registerTool(
                 let raw = sessionError ?? await handler(executionArgs);
                 if (!raw.isError && name !== "project_control" && contextObservers.get(server)?.(estimateResultBytes(raw))) {
                     raw = { ...raw, content: [...(raw.content ?? []), { type: "text", text: "长任务检查点提醒：本会话已产生较多 MCP 调用或输出（不是模型 token 用量）。请用 project_control(action=checkpoint, project_session, checkpoint={id,summary,next_steps,previous_id}) 保存精简任务状态；首次 previous_id=null，更新前 restore 读取上一份 id。勿包含凭据或隐藏推理。需要恢复时调用 action=restore。此工具不能清空 Gemini App 的上下文。" }] };
+                }
+                if (!raw.isError && name !== "project_control") {
+                    const session = currentProjectSessions.get(server)?.();
+                    if (session) raw = {
+                        ...raw,
+                        content: [...(raw.content ?? []), {
+                            type: "text",
+                            text: `当前项目会话：${JSON.stringify(session)}\n后续调用继续携带此 project_session；整理上下文时保留它。恢复时先调用 project_control(action=current)，需要任务摘要时再调用 action=restore。`,
+                        }],
+                    };
                 }
                 const result = withUiCardMeta(name, args, raw);
                 const durationMs = performance.now() - startedAt;

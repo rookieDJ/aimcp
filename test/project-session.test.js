@@ -51,7 +51,16 @@ test("explicit project sessions survive missing metadata and reconnects without 
     const read = async (handle, expected, session) => {
         const result = await call("read", { path: "marker.txt", ...(handle ? { project_session: handle } : {}) }, session);
         assert.equal(result.isError === true, expected === null, JSON.stringify(result));
-        if (expected !== null) assert.match(result.structuredContent.text, new RegExp(expected));
+        const context = result.content.find(part => part.type === "text" && part.text.startsWith("当前项目会话："));
+        if (expected !== null) {
+            assert.match(result.structuredContent.text, new RegExp(expected));
+            assert.ok(context, "Recent tool results must retain the current binding for context recovery");
+            const saved = JSON.parse(context.text.split("\n")[0].slice("当前项目会话：".length));
+            assert.equal(saved.project_id, projects[expected === "alpha" ? 0 : 1].id);
+            assert.equal(saved.project_session, handle ?? chat);
+            assert.equal(JSON.stringify(result.structuredContent).includes("当前项目会话"), false);
+        } else assert.equal(context, undefined, "Unbound, invalid and foreign handles must not disclose another session");
+        return result;
     };
     const chat = await select(0, "chat-a");
     await read(undefined, "alpha", "chat-a"); // Existing clients remain compatible.
@@ -63,6 +72,10 @@ test("explicit project sessions survive missing metadata and reconnects without 
     const geminiA = await select(0);
     const geminiB = await select(1);
     assert.notEqual(geminiA, geminiB);
+    const recent = await read(geminiA, "alpha");
+    const retained = JSON.parse(recent.content.find(part => part.type === "text" && part.text.startsWith("当前项目会话：")).text.split("\n")[0].slice("当前项目会话：".length));
+    const recovered = await call("project_control", { action: "current", project_session: retained.project_session });
+    assert.equal(recovered.structuredContent.project.id, projects[0].id);
     await Promise.all([read(geminiA, "alpha"), read(geminiB, "beta"), read(chat, "alpha", "chat-a")]);
     await read(undefined, null);
     for (const tool of (await client.listTools()).tools) assert.ok(tool.inputSchema.properties.project_session, tool.name);

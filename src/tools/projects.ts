@@ -8,7 +8,7 @@ import { errorResult, okResult } from "../lib/tool/result.js";
 import { canonicalProjectPath } from "../projects/identity.js";
 import { projectSessionHandle, type BindingStore } from "../projects/bindings.js";
 import { ensureToolConversationOwner } from "../lib/tool/context.js";
-import { archiveProjectBindings, assertConversationClient, chatMessageSchema, contextCheckpointSchema, conversationClientSchema, readContextCheckpoint, saveConversationUse, type ConversationClient } from "../projects/conversations.js";
+import { archiveProjectBindings, assertConversationClient, chatMessageSchema, contextCheckpointSchema, conversationClientSchema, conversationTitleSchema, readContextCheckpoint, saveConversationUse, type ConversationClient } from "../projects/conversations.js";
 import type { ProjectRegistry } from "../projects/registry.js";
 import type { ProjectRuntimeManager } from "../projects/runtime.js";
 import { currentBindingOwnerKey, unboundProjectMessage } from "../server/project-router.js";
@@ -43,7 +43,7 @@ export function registerProjectTools(server: McpServer, deps: ProjectToolDeps): 
             project_path: z.string().max(2_000).optional(),
             force: z.boolean().optional(),
             client: conversationClientSchema.optional(),
-            title: z.string().min(1).max(200).optional(),
+            title: conversationTitleSchema.optional().describe("Short task title on select, record or checkpoint, when local recording is enabled. Never include credentials or private identifiers."),
             messages: z.array(chatMessageSchema).min(1).max(20).optional(),
             checkpoint: contextCheckpointSchema.optional(),
         },
@@ -62,10 +62,11 @@ export function registerProjectTools(server: McpServer, deps: ProjectToolDeps): 
     }), async ({ action, project_id: projectId, project_path: projectPath, force, client, title, messages, checkpoint }) => {
         try {
             if (action !== "select" && (projectId !== undefined || projectPath !== undefined || force !== undefined)) throw new Error("project_id、project_path 和 force 仅适用于 action=select。");
-            if (action !== "record" && (messages !== undefined || title !== undefined)) throw new Error("messages 和 title 仅适用于 action=record。");
+            if (action !== "record" && messages !== undefined) throw new Error("messages 仅适用于 action=record。");
+            if (!["select", "record", "checkpoint"].includes(action) && title !== undefined) throw new Error("title 仅适用于 select、record 或 checkpoint。");
             if (action !== "select" && action !== "record" && client !== undefined) throw new Error("client 仅适用于 action=select 或 record。");
             if (action !== "checkpoint" && checkpoint !== undefined) throw new Error("checkpoint 仅适用于 action=checkpoint。");
-            if (action === "select") await bindProject(deps, projectId, projectPath, force, client);
+            if (action === "select") await bindProject(deps, projectId, projectPath, force, client, title);
             else if (action === "unbind") await unbindProject(deps, currentBindingOwnerKey(fallbackOwnerId));
 
             const binding = bindings.resolve(currentBindingOwnerKey(fallbackOwnerId)) ?? null;
@@ -81,7 +82,7 @@ export function registerProjectTools(server: McpServer, deps: ProjectToolDeps): 
                 const category = assertConversationClient(binding.ownerKey, undefined, binding.client);
                 if (action === "checkpoint") {
                     if (!checkpoint) throw new Error("action=checkpoint 需要 checkpoint（id、summary、next_steps、previous_id；首次为 null，更新为上一份 id）。");
-                    const saved = await saveConversationUse(binding.ownerKey, selected, { client: category, checkpoint, boundAt: binding.boundAt });
+                    const saved = await saveConversationUse(binding.ownerKey, selected, { client: category, title, checkpoint, boundAt: binding.boundAt });
                     recordingEnabled = saved.recordingEnabled;
                     context = { checkpoint_saved: recordingEnabled };
                     if (recordingEnabled) runtime?.contextProgress.reset(binding.ownerKey);
@@ -115,7 +116,7 @@ export function registerProjectTools(server: McpServer, deps: ProjectToolDeps): 
     });
 }
 
-async function bindProject(deps: ProjectToolDeps, projectId?: string, projectPath?: string, force?: boolean, client?: ConversationClient): Promise<void> {
+async function bindProject(deps: ProjectToolDeps, projectId?: string, projectPath?: string, force?: boolean, client?: ConversationClient, title?: string): Promise<void> {
     const hasId = Boolean(projectId?.trim());
     const hasPath = Boolean(projectPath?.trim());
     if (hasId === hasPath) throw new Error("action=select 需要且只需要 project_id 或 project_path。");
@@ -135,7 +136,7 @@ async function bindProject(deps: ProjectToolDeps, projectId?: string, projectPat
     deps.runtimes.get(selected.id, selected.path);
     await deps.bindings.bind(ownerKey, selected.id, category);
     const binding = deps.bindings.resolve(ownerKey)!;
-    await saveConversationUse(ownerKey, selected, { client: category, boundAt: binding.boundAt });
+    await saveConversationUse(ownerKey, selected, { client: category, title, boundAt: binding.boundAt });
 }
 
 async function unbindProject(deps: ProjectToolDeps, ownerKey: string): Promise<void> {

@@ -71,6 +71,8 @@ export function unboundProjectMessage(activeProjects: RegisteredProject[]): stri
         list,
         "调用 project_control(action=select, project_id=\"<确认的项目 id>\")。",
         "如果之前已经选择过项目，请在本次调用携带选择结果中的 project_session；每次后续工具调用都要携带它，重连后也一样。",
+        "上下文丢失时，先在本聊天近期的工具结果中查找“当前项目会话”的 project_session，再调用 project_control(action=current) 核对绑定。不要借用其他聊天的句柄。",
+        "如果句柄也已遗失，服务端不能仅凭同一个 Gemini 账号确定是哪段聊天；请向用户确认项目后重新选择，不要自动采用最近使用的项目。",
         "如果 project_control 不可见，请刷新该 MCP 连接的工具列表或重新连接；已删除的旧项目工具不再提供兼容入口。",
     ].join("\n");
 }

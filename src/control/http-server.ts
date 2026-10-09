@@ -21,6 +21,7 @@ import {
     getConversationHistory,
     getConversationTranscript,
     deleteConversationHistory,
+    renameConversationHistory,
     setConversationRecording,
     listProjects,
     readLogs,
@@ -210,6 +211,13 @@ export function createControllerHttpServer(options: ControllerHttpServerOptions)
     app.delete("/api/conversations/:id", async (req, res) => {
         try { res.json({ ok: true, ...await deleteConversationHistory(req.params.id) }); }
         catch (error) { sendError(res, error, 400); }
+    });
+    app.put("/api/conversations/:id/title", async (req, res) => {
+        try {
+            const body = asRecord(req.body);
+            if (typeof body.title !== "string" || (body.expectedTitle !== null && typeof body.expectedTitle !== "string")) throw new Error("需要 title 和原名称 expectedTitle（未命名为 null）。");
+            res.json({ ok: true, ...await renameConversationHistory(req.params.id, body.title, body.expectedTitle) });
+        } catch (error) { sendError(res, error, 400); }
     });
     app.post("/api/project-folder", async (_req, res) => {
         const controller = new AbortController();

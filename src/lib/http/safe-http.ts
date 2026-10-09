@@ -213,6 +213,7 @@ async function requestOne(
         const directDetail = error instanceof Error ? error.message : String(error);
         throw new Error(
             `Proxy attempts failed (${proxyErrors.join("; ")}); direct connection failed: ${directDetail}`,
+            { cause: error },
         );
     }
 }
@@ -505,6 +506,7 @@ async function resolveWithDohThroughProxy(
         `Public DNS resolution through configured HTTPS proxy failed for ${hostname}: ${
             lastError instanceof Error ? lastError.message : "unknown error"
         }`,
+        { cause: lastError },
     );
 }
 
