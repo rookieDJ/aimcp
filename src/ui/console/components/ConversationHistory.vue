@@ -38,7 +38,7 @@ async function saveName(): Promise<void> {
     renameError.value = "";
     try {
         await api(`/api/conversations/${encodeURIComponent(renameRecord.value.id)}/title`, {
-            method: "PUT", body: JSON.stringify({ title, expectedTitle: renameRecord.value.title ?? null }), signal: owner.signal,
+            method: "PUT", body: { title, expectedTitle: renameRecord.value.title ?? null }, signal: owner.signal,
         });
         if (!owner.signal.aborted && renameRequest === owner) { emit("renamed"); renameOpen.value = false; }
     } catch (reason) {

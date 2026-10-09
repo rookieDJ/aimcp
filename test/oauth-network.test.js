@@ -11,6 +11,7 @@ process.env.HOME = home; process.env.USERPROFILE = home;
 const { OAuthStateStore } = await import("../dist/auth/oauth-state.js");
 const { CodexClientsStore, CodexOAuthProvider } = await import("../dist/auth/provider.js");
 const { PrivateKeyJwtVerifier } = await import("../dist/auth/private-key-jwt.js");
+const { OAuthRemoteUnavailableError } = await import("../dist/auth/remote-fetch.js");
 const { createTokenEndpoint } = await import("../dist/auth/endpoints.js");
 const { setAdminPassword, getAdminCredentialGeneration } = await import("../dist/auth/password-store.js");
 const resource = new URL("https://fixture.example/mcp"), issuer = new URL("/", resource);
@@ -67,6 +68,16 @@ test("metadata outages are retryable service failures, not invalid clients; reco
     await provider.verifyAccessToken(afterDisconnect.access_token);
     assert.equal((await refresh()).status, 400); // Replay is still rejected, even after network recovery.
     await assert.rejects(provider.verifyAccessToken(rotated.access_token));
+    const registered = { ...client, client_id: "registered-network-fixture" };
+    await store.registerClient(registered, issuer.href);
+    const localGrant = { ...grant, clientId: registered.client_id };
+    const localTokens = await store.exchangeAuthorizationCode({ ...localGrant, code: await store.createAuthorizationCode(localGrant) });
+    const reopened = await OAuthStateStore.open(join(home, "oauth.json"));
+    const localProvider = new CodexOAuthProvider(reopened, issuer, resource, { fetch: async () => { throw new Error("Local registered client must not depend on the network"); } });
+    await localProvider.verifyAccessToken(localTokens.access_token);
+    const localClient = await localProvider.authenticateClient({ client_id: registered.client_id });
+    const localRefreshed = await localProvider.exchangeRefreshToken(localClient, localTokens.refresh_token);
+    await localProvider.verifyAccessToken(localRefreshed.access_token);
 });
 
 test("metadata and JWKS distinguish upstream outages from invalid documents and signatures", async t => {
@@ -81,6 +92,12 @@ test("metadata and JWKS distinguish upstream outages from invalid documents and 
     assert.equal(await invalid.getClient(clientId), undefined);
     const missing = new CodexClientsStore(store, issuer, { fetch: async () => response({}, 404) });
     assert.equal(await missing.getClient(clientId), undefined);
+    for (const failure of [Object.assign(new Error("fixture"), { code: "ENETDOWN" }), new Error("wrapper", { cause: Object.assign(new Error("fixture"), { code: "EAI_AGAIN" }) }), new Error("DNS-over-HTTPS timed out after 15000ms")]) {
+        const clients = new CodexClientsStore(store, issuer, { fetch: async () => { throw failure; } });
+        await assert.rejects(clients.getClient(clientId), OAuthRemoteUnavailableError);
+    }
+    const blocked = new CodexClientsStore(store, issuer, { fetch: async () => { throw new Error("URL resolves to a private address"); } });
+    assert.equal(await blocked.getClient(clientId), undefined);
     const { privateKey, publicKey } = await generateKeyPair("RS256");
     const jwk = { ...await exportJWK(publicKey), kid: "fixture", alg: "RS256" };
     const signed = { ...client, token_endpoint_auth_method: "private_key_jwt", jwks_uri: "https://client.example/jwks" };

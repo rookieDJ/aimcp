@@ -16,7 +16,7 @@ export async function fetchOAuthDocument(url: URL, options: SafeHttpOptions, fet
         let cause: unknown = error;
         for (let i = 0; i < 5 && cause instanceof Error; i++) {
             const code = (cause as NodeJS.ErrnoException).code;
-            if (isRetryableProxyConnectionError(cause) || code === "EAI_AGAIN" || code === "ENOTFOUND") throw new OAuthRemoteUnavailableError();
+            if (isRetryableProxyConnectionError(cause) || ["EAI_AGAIN", "ENOTFOUND", "ENETDOWN", "EHOSTDOWN", "ECONNABORTED"].includes(code ?? "") || /^DNS-over-HTTPS timed out after \d+ms$/.test(cause.message)) throw new OAuthRemoteUnavailableError();
             cause = cause.cause;
         }
         throw error;
