@@ -5,6 +5,7 @@ import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { createMcpHandler, isInitializeRequest } from "@modelcontextprotocol/server";
 import type { ServerConfig } from "../config/loader.js";
 import { createOAuthRuntime, type OAuthRuntime } from "../auth/server.js";
+import { OAuthDiagnostics } from "../auth/diagnostics.js";
 import { hasAdminPassword } from "../auth/password-store.js";
 import { DownstreamMcpHub } from "../downstream/hub.js";
 import { ProcessOwnerPool } from "../lib/process/owner-pool.js";
@@ -122,6 +123,7 @@ export function createHttpServer(
     options: CreateHttpServerOptions = {},
 ): RunningHttpServer {
     const daemonOptions = options.daemon;
+    const oauthDiagnostics = new OAuthDiagnostics();
     const hub = options.hub ?? DownstreamMcpHub.empty();
     const skills = options.skills ?? SkillRegistry.empty();
     const standaloneProject = daemonOptions ? undefined : new ProjectContext(config.projectRoot);
@@ -295,6 +297,7 @@ export function createHttpServer(
 
     if (daemonOptions) {
         registerDaemonControlRoutes(app, config, daemonOptions, () => boundPort);
+        app.get("/daemon/oauth-diagnostics", (_req, res) => res.json(oauthDiagnostics.snapshot()));
         app.post("/daemon/check-tools", async (_req, res) => {
             try { res.json(await probeMcpHandler(mcpHandler, localMcpUrl(), config.oauthRequired)); }
             catch { res.status(500).json({ error: "工具检查未通过" }); }
@@ -445,6 +448,9 @@ export function createHttpServer(
                     }
                     resolve(httpServer!);
                 });
+                // Observe before Express so Host/Origin/parser rejections are visible too.
+                // Diagnostics stay behind the existing loopback + control-token gate.
+                if (config.oauthRequired) httpServer.prependListener("request", oauthDiagnostics.observe);
             });
             if (config.oauthRequired) {
                 try {

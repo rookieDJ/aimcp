@@ -10,6 +10,10 @@ const LOG_MAX_VALUE_LENGTH = 1_000;
 const SENSITIVE_FIELD_RE =
     /authorization|cookie|credential|password|private.?key|secret|token/i;
 const SAFE_STRING_FIELDS: Record<string, RegExp> = {
+    endpoint: /^(mcp|resource_metadata|authorization_metadata|register|authorize|token|revoke)$/,
+    outcome: /^(responded|approved|challenge|rejected|aborted)$/,
+    platform: /^(macos|windows|other|unknown)$/,
+    browser: /^(chrome|safari|edge|firefox|other|unknown)$/,
     invocationId: /^[a-f0-9-]{36}$/,
     tool: /^[a-z][a-z0-9_]{0,63}$/,
     project: /^[a-f0-9]{64}$/,

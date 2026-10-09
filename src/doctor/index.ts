@@ -1,5 +1,6 @@
 import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
+import { describeOAuthDiagnostics } from "../auth/diagnostics.js";
 import { geminiCapabilityProvider } from "../capabilities/providers/gemini.js";
 import { hasAdminPassword } from "../auth/password-store.js";
 import { findRipgrep } from "../lib/search/ripgrep.js";
@@ -282,6 +283,13 @@ export async function runDoctorChecks(options: DoctorOptions = {}): Promise<Doct
                 checks.push({ label: "MCP 工具与项目读取", level: "error", detail: "本机控制接口可用，但 MCP 工具调用失败", hint: "查看运行日志；必要时运行 aimcp restart，重启后重新选择项目。" });
             }
             if (publicAccess && status.mode === "public") {
+                try {
+                    const observations = await daemon.client.oauthDiagnostics();
+                    const rejected = observations.events.slice(-8).some(event => event.outcome === "rejected" || event.outcome === "aborted");
+                    checks.push({ label: "客户端授权阶段", level: rejected ? "warn" : "ok", detail: describeOAuthDiagnostics(observations), hint: "仅列出本次启动后最近收到的请求，不代表某个聊天已连接。MCP 的 401 是授权挑战，也可能表示令牌失效，需对照后续请求。若 Google 页面报 500，重试后对照注册、授权页面、令牌交换阶段；没有请求到达时检查 Gemini 账号、浏览器与网络。浏览器标识仅供排查，不作为身份依据。" });
+                } catch {
+                    checks.push({ label: "客户端授权阶段", level: "warn", detail: "当前 Runtime 不支持授权阶段诊断。", hint: "使用最新版 aimcp 重启 Runtime 后再试。" });
+                }
                 const expected = `https://${publicAccess.domain}/mcp`;
                 checks.push({ label: "Daemon 配置一致性", level: status.publicMcpUrl === expected ? "ok" : "error", detail: status.publicMcpUrl === expected ? expected : "正在运行的公网地址与已保存配置不同", ...(status.publicMcpUrl !== expected ? { hint: "运行 aimcp restart 载入已保存配置。" } : {}) });
                 if (publicAccess.kind === "cloudflare" && !status.runtimeIntent.noTunnel) {

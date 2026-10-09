@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { loopbackHost } from "../lib/http/listen-address.js";
 import { terminateChildProcess } from "../lib/process/tree.js";
 import { getUserConfigDir } from "../config/user-config.js";
+import type { OAuthDiagnosticsSnapshot } from "../auth/diagnostics.js";
 import {
     loadDaemonState,
     loadProjectsFile,
@@ -102,6 +103,10 @@ export class DaemonControlClient {
 
     async checkTools(): Promise<{ toolCount: number; projectCount: number }> {
         return await this.request("/daemon/check-tools", { method: "POST" }) as { toolCount: number; projectCount: number };
+    }
+
+    async oauthDiagnostics(): Promise<OAuthDiagnosticsSnapshot> {
+        return await this.request("/daemon/oauth-diagnostics") as OAuthDiagnosticsSnapshot;
     }
 
     async recoverTunnel(signal?: AbortSignal): Promise<void> {

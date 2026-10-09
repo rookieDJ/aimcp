@@ -1,1075 +1,338 @@
 # aimcp
 
-让 ChatGPT 或 Gemini 通过 MCP 操作你电脑上的代码项目。
+> 让 **ChatGPT**、**Google Gemini CLI** 或 **Gemini 网页端** 通过 MCP 协议，安全操作你电脑上的代码项目。
 
-安装并连接后，你可以在 ChatGPT 或 Gemini 里直接说：
+<p align="left">
+  <img src="https://img.shields.io/badge/Node-%3E%3D22-brightgreen?logo=node.js&logoColor=white" alt="Node.js Version" />
+  <img src="https://img.shields.io/badge/ChatGPT-Compatible-74aa9c?logo=openai&logoColor=white" alt="ChatGPT Compatible" />
+  <img src="https://img.shields.io/badge/Gemini-Compatible-4285F4?logo=google&logoColor=white" alt="Gemini Compatible" />
+  <img src="https://img.shields.io/badge/Protocol-MCP_Streamable_HTTP-blueviolet" alt="Protocol MCP" />
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License MIT" />
+</p>
 
-- “先看看这个项目是做什么的”
-- “检查一下现在有哪些改动”
-- “修掉这个报错”
-- “跑一下测试”
-- “把这个功能实现完”
-- “切到另一个项目继续”
+安装并连接后，你可以在 AI 对话中直接说：
 
-aimcp 会在你的电脑上读取文件、修改代码、执行命令、查看 Git，并把结果返回给 MCP 客户端。
+- 💬 *“帮我看看当前项目是做什么的”*
+- 💬 *“检查一下 git 状态，现在有哪些未提交改动”*
+- 💬 *“修掉这个报错，并跑一下单元测试”*
+- 💬 *“把这个功能实现完，然后切到 api 项目继续”*
 
-为了减少模型选择工具时的歧义，多项目 daemon 只公开 15 个顶层工具：`project_control` 加上 `read`、`read_image`、`apply_patch`、`ls`、`grep`、`glob`、`code_explore`、`exec_command`、`write_stdin`、`skills_list`、`skill_read`、`mcp_tools`、`mcp_call`、`summary`。Git 和包管理等操作统一通过 `exec_command` 完成。
-
-> aimcp 面向个人开发环境使用。它拥有很强的本机操作能力，请只连接你信任的 MCP 客户端和项目。
+`aimcp` 会在你的电脑上受控地读取文件、修改代码、执行构建与测试命令，并把结果实时返回给 AI。
 
 ---
 
-## 它是怎么工作的？
+## 📌 目录
 
-aimcp 把本机控制面和真正处理 MCP 请求的 Runtime 分开：
+- [一图看懂 aimcp](#-一图看懂-aimcp)
+- [模式选择指南](#-模式选择指南本机模式-vs-公网模式)
+- [快速开始](#-快速开始)
+  - [1. 安装](#1-安装)
+  - [2. 启动与控制台](#2-启动与管理控制台推荐)
+  - [3. 接入 AI 客户端](#3-接入-ai-客户端)
+    - [连接 Gemini CLI（本机最简）](#31-连接-gemini-cli本机模式推荐)
+    - [连接 Gemini 网页版 / 移动端](#32-连接-gemini-网页版--移动端公网模式)
+    - [连接 ChatGPT](#33-连接-chatgpt公网模式)
+    - [连接 Codex CLI](#34-连接-codex-cli本机模式)
+- [多项目工作流](#-多项目隔离与工作流)
+- [精简 15 工具矩阵](#-15-个精简工具矩阵)
+- [常用命令速查](#-常用命令速查)
+- [外部能力与 Skills 导入](#-外部能力与-skills-导入)
+- [故障排查与自愈决策树](#-故障排查与自愈决策树)
+- [本地开发](#-本地开发)
+- [安全说明](#-安全说明)
 
-```text
-Web Console / CLI
-       │
-       ▼
-本机 Controller ─── 项目、配置、日志、诊断、更新
-       │
-       ▼
-MCP Runtime ─────── 工具执行、OAuth、项目运行态
-       │
-       ▼
-Cloudflare Tunnel 或你自己的 HTTPS 入口
-       │
-       ▼
-ChatGPT / Gemini
+---
+
+## 🗺️ 一图看懂 aimcp
+
+`aimcp` 将控制面与运行时彻底解耦。多个工程目录、多个对话窗口，统一由一个轻量级后台守护进程提供服务：
+
+```mermaid
+graph TD
+    subgraph Clients ["🤖 AI 客户端"]
+        GeminiCLI["Gemini CLI / Codex CLI<br/>(同机本地命令行)"]
+        WebAI["ChatGPT / Gemini 网页端<br/>(云端或移动端 App)"]
+    end
+
+    subgraph Channels ["🌐 传输模式"]
+        Loopback["🟢 本机模式 (Local)<br/>http://127.0.0.1:3920/mcp<br/><i>免密码 · 零网络依赖</i>"]
+        Cloudflare["🟣 公网接入模式 (Public)<br/>https://aimcp.your-domain.com/mcp<br/><i>自动 Cloudflare Tunnel · OAuth 2.0 密码鉴权</i>"]
+    end
+
+    subgraph Core ["⚙️ aimcp 守护进程 (Daemon)"]
+        Controller["Web Console 控制台<br/><i>项目登记 / 状态诊断 / 日志</i>"]
+        Router["会话项目路由器<br/>(project_control)"]
+        ToolEngine["15 个精简原子工具<br/><i>代码读写 · 补丁事务 · 命令执行</i>"]
+    end
+
+    subgraph Projects ["💻 本机代码工程目录"]
+        ProjA["📁 前端项目 (~/code/web)"]
+        ProjB["📁 后端项目 (~/code/api)"]
+        ProjC["📁 移动端项目 (~/code/app)"]
+    end
+
+    GeminiCLI --> Loopback --> Router
+    WebAI --> Cloudflare --> Router
+    Controller -.管理状态 / 启停.-> Core
+    Router --> ToolEngine
+    ToolEngine == 严格隔离 == ProjA
+    ToolEngine == 严格隔离 == ProjB
+    ToolEngine == 严格隔离 == ProjC
 ```
 
-Controller 只监听本机，负责管理状态；Runtime 可以启动或停止。`aimcp stop` 只停止 Runtime，所以 Web Console 仍然能打开并用于修复配置；`aimcp shutdown` 才会把两者都关闭。
+---
 
-所有注册项目共享 **一个 MCP Runtime**。`aimcp project add` 只注册项目，不会隐式启动 Runtime；`aimcp start` 会先注册当前项目，再按保存的运行模式启动 Runtime。
+## 🧭 模式选择指南（本机模式 vs 公网模式）
 
-每个项目会话只会绑定一个项目。这样你可以在不同会话里分别处理不同项目，也可以明确切换当前会话使用的项目。`project_control(action=select)` 会返回稳定的 `project_session`；模型应在后续每次工具调用中携带它，包括重连后的调用。ChatGPT 的 `openai/session` 元数据仍可用于识别会话，但不能假定客户端每次都会提供它。Runtime 使用无状态 HTTP，不依赖 transport session 保存项目绑定；不提供会话标识的客户端会在选择项目时创建独立的项目会话。
+无需纠结网络配置，先看看你使用的是哪种客户端：
+
+| 你的使用场景 | 推荐模式 | 网络与环境要求 | 是否需要密码 | 对应客户端 | 启动命令 |
+| :--- | :---: | :---: | :---: | :--- | :--- |
+| **同机开发 / 纯本地 CLI** | 🟢 **本机模式 (`--local`)** | 纯本地回环 (127.0.0.1)<br>无需公网 IP 与域名 | ❌ 免密访问 | Gemini CLI<br>Codex CLI | `aimcp start --local` |
+| **云端网页端 / 手机 App** | 🟣 **公网模式 (`--public`)** | HTTPS 域名入口<br>(支持自动创建 Cloudflare Tunnel) | ✅ 强密码鉴权 + OAuth | ChatGPT 网页版<br>Gemini 网页版/App | `aimcp start --public` |
 
 ---
 
-## 你需要准备什么？
+## 🚀 快速开始
 
-### 必需
+### 1. 安装
 
-- **Node.js 22 或更高版本**
-
-### 推荐
-
-- **Git**：用于查看状态、提交历史和差异
-
-### 如果要从 ChatGPT 连接
-
-你需要一个可以通过 HTTPS 访问到本机 aimcp 的公网地址。
-
-最简单的方式是：
-
-- 一个 **Cloudflare 账号**
-- 一个已经接入 Cloudflare 的 **域名**
-
-aimcp 可以自动创建和管理 Cloudflare Tunnel。
-
-如果你已经有自己的反向代理、服务器或其他 HTTPS 入口，也可以不让 aimcp 管理 Cloudflare。
-
-### 可选
-
-如果电脑上已经安装了这些工具，aimcp 还可以读取它们已有的能力：
-
-- ChatGPT（Codex CLI 本机能力）
-- Gemini CLI
-- Claude Code（旧配置兼容）
-- Agent Skills
-
-没有这些也不影响 aimcp 的核心功能。
-
----
-
-# 快速开始
-
-## 1. 安装
-
-安装全局 `aimcp` 命令：
+系统环境要求：**Node.js 22** 或更高版本。
 
 ```bash
+# 全局安装 aimcp
 npm install --global @rookiedj/aimcp
-```
 
-检查安装：
-
-```bash
+# 检查安装
 aimcp --version
 ```
 
-如果终端提示找不到 `aimcp`，请确认 npm 的全局可执行目录在 `PATH` 中；可用 `npm config get prefix` 查看全局安装前缀，然后重新打开终端。
-
-从源码运行时，在仓库根目录执行 `npm install`、`npm run build`，再运行 `npm run start:local`。
-
 ---
 
-## 2. 打开 Web Console（推荐）
+### 2. 启动与管理控制台（推荐）
 
-运行：
+打开图形化 Web 管理控制台：
 
 ```bash
 aimcp open
 ```
 
-这只会启动本机 Controller 并打开 Web Console，**不会启动 MCP Runtime，也不会自动修改公网配置**。
+控制台会自动在浏览器打开（默认 `http://127.0.0.1:3921`）。你可以在可视化界面中：
+1. **添加项目**：点击“添加项目”选择你的代码工程目录。
+2. **选择模式**：点击“启动模式”，选择 **仅本机** 或 **公网接入**。
+3. **复制连接**：点击“启动服务”后，一键复制提供给 AI 客户端的 MCP 地址。
 
-推荐按这个顺序使用：
-
-1. 在“项目”里添加 MCP 客户端可以操作的目录
-2. 如果要从远程 MCP 客户端连接，在“连接”里按“公网地址 → 连接密码 → 检查连接”三步完成配置
-3. 回到“概览”，在“启动模式”中选择“仅本机”或“公网接入”，再启动服务；默认选择遵循已保存偏好
-4. ChatGPT / Gemini / Skills、诊断、日志和更新统一放在“系统”里
-
-概览会按“选择项目 → 启动服务 → 获取连接地址”显示当前进度，服务运行后可以直接复制当前 MCP 地址。项目列表支持按名称、路径搜索和按登记状态筛选；筛选不会修改登记或会话绑定。
-
-控制台使用 Vue Bits Particles 的粒子星场，提供轻微鼠标视差与环境光。右上角的魔法棒按钮可关闭效果，选择仅保存在当前浏览器。动态渲染最高 30 帧/秒，标签页隐藏时暂停；系统启用“减少动态效果”或 WebGL 不可用时使用静态背景。粒子不接收点击，也不会调用外部服务。组件来源及许可见 `THIRD_PARTY_NOTICES.md`。
-
-如果你更喜欢终端，也可以完全不用 Web：
-
-```bash
-aimcp project add /path/to/project
-aimcp setup        # 只有需要远程 MCP 连接时才需要
-aimcp start
-```
-
-### 公网连接
-
-默认情况下，aimcp 会询问是否自动配置 Cloudflare Tunnel。
-
-选择自动配置后，它会：
-
-1. 准备 `cloudflared`
-2. 打开浏览器登录 Cloudflare
-3. 读取账号中的域名
-4. 让你选择一个域名
-5. 创建或复用当前电脑对应的 Tunnel
-6. candidate 准备完成前保持现有后台服务在线；只有实际切换时才短暂停止
-7. 启动 candidate connector，确认它已经连接 Cloudflare
-8. 保存原 DNS 记录，再把域名切换到 candidate Tunnel
-9. 在默认最多 5 分钟的兜底窗口内验证公网随机探针确实回到这台电脑；可随时 Ctrl+C 安全取消
-10. 验证成功后才原子提交本机配置；失败会恢复 DNS，并保留上一次可用配置
-
-例如最终得到：
-
-```text
-https://aimcp.example.com/mcp
-```
-
-如果你的 Cloudflare 账号里没有已经接入 Cloudflare 的域名，自动 Tunnel 模式无法完成配置。
-
-> Cloudflare Tunnel 生成的 `<UUID>.cfargotunnel.com` 是 DNS CNAME 目标，不是直接给 MCP 客户端使用的地址。
-
-### 使用自己的 HTTPS 入口
-
-如果你不想让 aimcp 管理 Cloudflare，可以在 setup 中选择自己提供公网入口，然后填写你的域名。
-
-此时需要你自己保证：
-
-```text
-https://你的域名/mcp
-```
-
-能够安全地转发到本机 aimcp 服务。
-
-### 连接密码
-
-公网验证完成后，aimcp 会先生成远程 MCP 连接密码。
-
-**请保存这个密码。**
-
-电脑上只保存密码哈希，不保存明文密码。忘记以后不能找回，只能重新设置。
-
-重新设置密码：
-
-```bash
-aimcp auth
-```
-
-### 外部能力（可选）
-
-核心公网连接和连接密码完成后，setup 还会检测当前环境是否存在：
-
-- ChatGPT（Codex CLI 本机能力）
-- Gemini CLI
-- Claude Code（旧配置兼容）
-- Agent Skills
-
-你可以选择：
-
-- 使用检测到的全部能力
-- 自定义启用哪些 MCP / Skills
-- 全部关闭
-
-默认推荐自动同步。这样这些工具的配置发生变化后，aimcp 可以自动刷新。当前目录没有检测到某个能力源，不会再把用户之前为其它项目启用的同类能力全局关闭；取消这一步也不会破坏已经完成的公网连接和连接密码。
+> **提示**：控制台是纯本地轻量服务，打开它**不会**自动触碰外网，也不会强制开启公网隧道。
 
 ---
 
-## 3. 用 CLI 启动项目
+### 3. 接入 AI 客户端
 
-进入项目目录：
+#### 3.1 连接 Gemini CLI（本机模式，推荐）
 
-```bash
-cd /path/to/your-project
-aimcp start
-```
+Gemini CLI 运行在同一台电脑上，直接走本地回环，速度最快、稳定性最高：
 
-`start` 的顺序是：先注册当前项目，再启动/复用 Controller，最后启动 Runtime。这样即使公网配置有问题，项目注册也不会丢，CLI 会给出 Web Console 地址供你继续修复。
-
-如果还没有配置公网连接，裸 `aimcp start` 默认使用**本机模式**。显式运行 `aimcp start --local` 也会把本机模式保存为以后默认；公网模式同样会保存，下次裸 `start` 会复用实际运行模式。
-
-同一个项目以后再次运行不会创建第二套服务器，只会刷新项目状态并确保共享 Runtime 可用。
-
-你也可以从其他目录指定项目：
-
-```bash
-aimcp start --root /path/to/your-project
-```
-
-查看当前状态：
-
-```bash
-aimcp status
-```
-
-你会看到：
-
-- Controller 是否运行、Web Console 地址
-- MCP Runtime 是否运行，以及当前/默认运行模式
-- 本机 MCP 地址
-- 公网 MCP 地址
-- Cloudflare Tunnel 是否在线
-- 当前 CLI 版本和正在运行的 daemon 版本
-- 两者版本不一致时的 `aimcp restart` 提示
-- 已注册项目
-- 每个项目当前有多少会话绑定
+1. **在代码目录启动服务**（默认端口 `3920`）：
+   ```bash
+   cd /path/to/your-project
+   aimcp start --local
+   ```
+2. **注册到 Gemini CLI 配置**：
+   ```bash
+   gemini mcp add --scope user --transport http aimcp http://127.0.0.1:3920/mcp
+   ```
+3. **验证连接**：
+   ```bash
+   gemini mcp list
+   ```
+   看到显示 `Connected` 后，重启 Gemini CLI，在会话中输入 `/mcp` 即可看到所有可用工具。详见 [Gemini CLI MCP 官方说明](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md)。
 
 ---
 
-## 4. 连接 ChatGPT
+#### 3.2 连接 Gemini 网页版 / 移动端（公网模式）
 
-ChatGPT 的 MCP App 入口和可用套餐可能会变化，请以你当前账号的 Apps 设置为准。
+Google Gemini 网页端（gemini.google.com）运行在云端，需要一个安全的公网 HTTPS 入口：
 
-当前常见流程是：
+1. **配置公网与连接密码**（首次使用配置一次即可）：
+   ```bash
+   aimcp setup
+   ```
+   跟随向导完成 Cloudflare 自动配置（只需已有 Cloudflare 托管域名）或填入自定义反向代理域名，并生成连接密码。
+2. **以公网模式启动**：
+   ```bash
+   aimcp start --public
+   aimcp status   # 复制输出的公网地址，例如：https://aimcp.your-domain.com/mcp
+   ```
+3. **在 Gemini 网页端添加应用**：
+   - 打开 [Gemini 网页版](https://gemini.google.com/)，进入 **设置 → 个性化智能服务 → 已连接的应用**。
+   - 在“自定义应用”中点击添加，粘贴公网 MCP 地址。
+   - 在弹出的授权页面中输入连接密码完成授权。
+   - 回到对话，输入 `@aimcp` 即可指派 AI 读写本地项目！
 
-1. 在 ChatGPT 中启用 **Developer Mode**
-2. 打开 **Apps → Create**
-3. 填入 aimcp 的 MCP 地址
-4. 扫描工具（Scan Tools）
-5. 按提示完成 OAuth / 密码验证
-6. 创建并启用这个 App
+---
 
-MCP 地址就是 setup 最后显示的公网地址，例如：
+#### 3.3 连接 ChatGPT（公网模式）
 
-```text
-https://aimcp.example.com/mcp
-```
+1. 确保以公网模式运行：`aimcp start --public`。
+2. 在 ChatGPT 账号设置中启用 **Developer Mode**（开发者模式）。
+3. 进入 **Apps → Create**，填入你的公网 MCP 地址（如 `https://aimcp.your-domain.com/mcp`）。
+4. 点击扫描工具（Scan Tools），按提示输入之前生成的连接密码完成 OAuth 验证并保存。
 
-授权时使用 `aimcp setup` 生成的连接密码。
+---
 
-连接完成后，就可以直接让 ChatGPT 操作本机项目。
-
-> 完整 MCP 写入能力是否可用取决于 ChatGPT 当前的套餐、工作区权限和产品开放状态。如果你的设置里没有 Developer Mode 或创建自定义 MCP App 的入口，请先确认当前 ChatGPT 账号是否支持。
-
-### Codex CLI 本机连接（可选）
-
-先在项目目录执行 `aimcp start --local`，然后注册 HTTP MCP 地址：
+#### 3.4 连接 Codex CLI（本机模式）
 
 ```bash
+aimcp start --local
 codex mcp add aimcp --url http://127.0.0.1:3920/mcp
 codex mcp list
 ```
 
-重启 Codex CLI 会话后使用工具。Codex CLI 与 IDE 扩展共享 MCP 配置；配置保存在 `~/.codex/config.toml`。如果 Runtime 端口不同，请使用控制台显示的本机 MCP 地址。使用公网地址时需以公网模式启动并完成客户端 OAuth 授权。参考 [Codex 官方 MCP 配置示例](https://developers.openai.com/learn/docs-mcp)。
-
-## 5. 连接 Gemini CLI
-
-Gemini CLI 支持通过 HTTP 连接 MCP 服务。
-
-在项目目录中启动本机服务：
-
-```bash
-aimcp start --local
-```
-
-然后把本机 MCP 服务注册到 Gemini CLI 的用户配置：
-
-```bash
-gemini mcp add --scope user --transport http aimcp http://127.0.0.1:3920/mcp
-gemini mcp list
-```
-
-确认显示 `Connected` 后，重启 Gemini CLI；进入会话后运行 `/mcp` 查看工具。本机模式只允许同一台电脑上的客户端访问，不需要连接密码。端口 `3920` 是默认值；如果修改过服务端口，注册时同步替换地址。使用公网地址时，把地址换成 `https://你的域名/mcp` 并以公网模式启动；Gemini CLI 会按 OAuth 流程提示授权，连接密码可通过 `aimcp setup` 创建或用 `aimcp auth` 修改。
-
-更多配置选项见 [Gemini CLI MCP 文档](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md)。
-
 ---
 
-## 6. 连接 Gemini 应用（网页版）
+## 🗂️ 多项目隔离与工作流
 
-Gemini 网页应用可以通过“已连接的应用”连接 aimcp 的自定义 MCP。这个流程与 Gemini CLI 的 `gemini mcp add` 不同。
-
-### 准备公网 MCP 地址
-
-Gemini 应用需要访问公网 HTTPS 地址；`127.0.0.1` 只对本机有效，不能填入 Gemini 应用。
-
-```bash
-cd /path/to/your-project
-aimcp setup           # 尚未配置公网入口时运行
-aimcp start --public
-aimcp status          # 复制“公网地址”，例如 https://aimcp.example.com/mcp
-```
-
-如果已经配置好公网入口，只需确保 Runtime 以公网模式运行，再从 `aimcp status` 复制地址。setup 会显示连接密码；忘记密码时可运行 `aimcp auth` 重新设置。
-
-### 在 Gemini 应用中添加
-
-1. 在电脑上打开 [Gemini 网页应用](https://gemini.google.com/)，进入 **设置 → 个性化智能服务 → 已连接的应用**。
-2. 在“自定义应用”中选择添加应用，并粘贴 `aimcp status` 显示的公网 MCP 地址。
-3. 按页面提示继续；在 aimcp 授权页输入连接密码并确认授权。
-4. 回到 Gemini 对话，输入 `@` 并选择 aimcp，然后提出请求。需要时先说“切换到 `<项目名>` 项目”。
-
-自定义应用需从 Gemini 网页版添加；连接后可在网页版和手机应用中使用。Google 当前列出的条件包括：年满 18 岁、位于美国、使用个人 Google 账号、开启“活动记录”，且界面目前仅支持英文。若看不到“已连接的应用”或“自定义应用”，请查看 [Google 官方说明及可用条件](https://support.google.com/gemini/answer/17209137?hl=en)。
-
-> aimcp 可读取和修改已注册项目中的文件并执行命令。只注册你信任并希望交给 Gemini 操作的项目；公网连接密码不要分享给他人。
-
----
-
-# 多项目怎么用？
-
-这是当前版本最重要的使用方式。
-
-先区分两个概念：
-
-- **注册项目（Registered Project）**：通过 Web Console、`aimcp project add` 或 `aimcp start` 注册的项目。一个 MCP 会话同一时间只绑定一个注册项目。
-- **会话绑定（Conversation Binding）**：MCP 会话当前选择的注册项目；文件和命令工具只能在这个项目目录内运行。
-
-项目注册由本机 Controller/CLI 完成；模型只通过 `project_control` 选择已经注册的项目，不会自行注册项目或扩大路径边界。
-
-## 注册多个项目
-
-假设电脑上有三个项目：
+`aimcp` 支持一台电脑托管多个项目，无需为每个项目开辟新端口或新服务：
 
 ```text
-~/code/api
-~/code/web
-~/code/mobile
+┌─────────────────────────────────────────────────────────────┐
+│                  同一个 aimcp 后台服务 (Port: 3920)           │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ 会话级严格目录隔离
+         ┌─────────────────────┼─────────────────────┐
+         ▼                     ▼                     ▼
+   ┌───────────┐         ┌───────────┐         ┌───────────┐
+   │ 对话会话 1 │         │ 对话会话 2 │         │ 对话会话 3 │
+   │ 绑定目录:   │         │ 绑定目录:   │         │ 绑定目录:   │
+   │ ~/code/web│         │ ~/code/api│         │ ~/code/app│
+   └───────────┘         └───────────┘         └───────────┘
+   ▲ 读写、搜索、测试命令严格限制在各自主工作区内，防止误操作越界 ▲
 ```
 
-分别进入目录运行：
+### 项目操作口令：
 
-```bash
-cd ~/code/api
-aimcp start
-
-cd ~/code/web
-aimcp start
-
-cd ~/code/mobile
-aimcp start
-```
-
-它们会全部注册到同一个 aimcp 后台服务。
-
-不会创建三个端口，也不会创建三个 Tunnel。
-
-查看所有项目：
-
-```bash
-aimcp project list
-```
-
-也可以显式注册指定目录：
-
-```bash
-aimcp project add /path/to/project
-```
-
-查看单个项目详情：
-
-```bash
-aimcp project info <项目 ID、项目名或目录>
-```
+1. **登记项目**：进入不同目录分别执行 `aimcp start`，或执行 `aimcp project add /path/to/project`。
+2. **对话内选择**：初次对话时 AI 会调用 `project_control` 询问要操作哪个工程，你只需说：*“使用 web 项目”*。
+3. **中途切换**：直接说：*“切换到 api 项目继续”*，AI 即可平滑换绑上下文。
 
 ---
 
-## MCP 会话会绑定一个项目
+## 🛠️ 15 个精简工具矩阵
 
-一个 MCP 会话只操作一个项目。
+为避免大模型在几十上百个琐碎工具中产生调用幻觉，`aimcp` 精选并收敛了 15 个高内聚工具：
 
-例如你可以说：
-
-> 使用 web 项目，看看首页现在有什么问题。
-
-MCP 客户端会通过 `project_control` 选择对应项目，然后后面的文件读取、代码修改、命令执行和 Git 操作都会以这个项目为上下文。
-
-另一个独立的 MCP 会话可以同时绑定 `api` 项目，互不影响。
-
-如果要在当前对话切换项目，可以直接说：
-
-> 切换到 api 项目。
-
-切换已有绑定时需要明确确认，不会静默跳到另一个项目。
-
-如果某些旧会话不再需要保留项目绑定，可以在 Web Console 的“项目”页面逐个或全部清除，也可以在终端运行：
-
-```bash
-aimcp bindings clean [项目]
-```
-
-终端会列出该项目的会话编号；只会清理你显式选中的绑定。清理不会删除客户端会话、项目文件或本地聊天历史，这些会话下次使用项目工具时需要重新选择项目。
-
-### 本地聊天记录：客户端主动发送
-
-Web Console 的“项目”页面提供本地会话记录，按 **ChatGPT / Gemini / 未识别客户端** 筛选，显示当前绑定、历史项目使用、首次与最近使用时间，以及已收到的消息数量。停用保留登记，可直接启用；移除取消登记，之后需重新添加。两者均保留本地文件和已保存聊天历史。
-
-MCP 不能自动读取客户端整个聊天窗口。聊天内容需要客户端主动调用 `project_control` 发送；只保存它实际发送的可见消息，不保证包含未发送的历史。可以向客户端说明：
-
-> 选择项目时传 client="chatgpt"（Gemini 使用 "gemini"），保存返回的 project_session。每轮用 project_control(action="record") 保存我的可见消息和你的最终回答，使用稳定、唯一的消息编号。不要发送隐藏推理、系统提示或密钥；缺失的历史不要编造。
-
-选择项目：`project_control(action="select", project_id="项目 ID", client="gemini", purpose="选择项目")`。
-
-保存消息（将句柄替换为 select 返回值）：
-
-```json
-{
-  "action": "record",
-  "purpose": "保存本轮可见聊天",
-  "project_session": "<select 返回的 project_session>",
-  "client": "gemini",
-  "title": "项目开发讨论",
-  "messages": [
-    { "id": "round-1-user", "role": "user", "content": "检查项目结构" },
-    { "id": "round-1-assistant", "role": "assistant", "content": "项目结构说明……" }
-  ]
-}
-```
-
-每批最多 20 条消息、48 KB，每条内容最多 16000 字符；较长内容需分段使用不同编号。相同编号与内容的重试不会重复保存，相同编号的不同内容会被拒绝。每个会话最多保存 8 MB / 10000 条，达到上限会明确报错，不会静默丢弃。GPT 与 Gemini 必须分别选择项目并使用各自句柄，不得跨客户端或聊天复用。
-
-消息保存在 `~/.ai-mcp/conversations/<会话编号>.json`（文件权限 0600），包含客户端提供的完整文本。记录属于本机私有数据，不在项目目录内，不随 npm 包发布。解除绑定、停用或移除项目后历史仍可查看，历史记录不能恢复项目访问权限。旧绑定无法可靠识别 Gemini 时显示“未识别客户端”，需客户端在 select / record 明确传入 client。
-
-可在 Web Console → 项目 → 本地会话记录中切换“保存会话记录到本地”。未配置时默认关闭；只有明确开启后才新增保存，已明确设置的开关保持原值。关闭后停止新增使用历史与客户端上传的聊天内容，已有记录仍可查看、删除；项目绑定正常工作。设置持久化为 `saveConversations`，运行中的新版 MCP 无需重启即可读取，重新开启不会补录关闭期间的聊天。
-
-会话文件以明文保存在当前用户的私有目录中，并未加密。开启前请确认客户端上传的内容不含密码、密钥或个人敏感信息；aimcp 无法保证客户端发送的完整聊天已脱敏。普通工具日志只记录操作名、状态和耗时，不保存命令、聊天、调用说明或错误原文。关闭会话保存不会删除已有文件；需要清除时使用“删除记录”。
-
-发布前运行 `npm run check:package` 和 `npm run test:package`。`npm pack` / `npm publish` 的 `prepack` 会先重新构建再检查发布清单；检查只允许运行代码、控制台资源、安装脚本和公开文档，发现本机状态文件、个人目录或常见凭据格式时中止。安装包测试还会检查实际 tarball，再在隔离用户目录中验证全局安装与启停。此检查不替代人工检查聊天、日志或未识别格式的密钥。
-
-记录列表与聊天详情均提供 **删除本地记录**，确认后永久删除该会话的聊天文件以及它在所有项目中的使用历史。项目绑定、项目文件和客户端聊天不受影响；列表会自动更新。会保留仅含会话哈希编号与客户端分类的私有删除标记（不含聊天、项目路径、标题或时间），防止旧绑定自动重新生成历史，也保持 GPT/Gemini 的分类隔离。客户端之后再次发送消息或显式重新选择项目时，会开始新的本地记录。
+| 类别 | 工具名 | 核心能力 | 典型使用场景 |
+| :--- | :--- | :--- | :--- |
+| 📂 **文件读写** | `read` | 带行号精确阅读单个或多个源码文件 | 查阅函数实现、排查报错位置 |
+| | `read_image` | 安全读取并按需压缩工程内图片 | 前端 UI 效果对比、图表查阅 |
+| | `apply_patch` | 事务式代码增删改（支持批量修改） | 编写功能实现、批量重构，出错自动回滚 |
+| 🔍 **代码探索** | `ls` | 结构化遍历项目文件目录 | 探索工程骨架与模块结构 |
+| | `grep` | 基于 ripgrep 的极速全文/正则搜索 | 查找关键常量、关键字引用及调用链 |
+| | `glob` | 按文件名模式匹配查找文件 | 搜索特定类型的文件（如 `*.spec.ts`） |
+| | `code_explore` | 代码符号与拓扑关系轻量探索 | 梳理大型仓库的代码组织结构 |
+| ⚡ **命令终端** | `exec_command` | 执行命令（超时控制 + 长任务会话） | 运行 `npm test`、`git status`、编译构建 |
+| | `write_stdin` | 向长时间运行的子进程标准输入写入 | 处理带有确认向导的命令行工具 |
+| 🧭 **会话控制** | `project_control` | 查看、绑定、切换当前对话的目标项目 | 对话初期的项目锁定与安全隔离 |
+| | `summary` | 本轮工具调用检查点自检总结 | 单轮任务完工前输出清晰结论 |
+| 🔌 **能力扩展** | `skills_list` / `skill_read` | 发现并阅读本地已导入的 Skills | 执行预设的特定业务开发流 |
+| | `mcp_tools` / `mcp_call` | 穿透调用下游已有扩展 MCP 工具 | 联动调用已配置的数据库/外部 API |
 
 ---
 
-## 停止一个项目
+## 📋 常用命令速查
 
-推荐使用：
-
-```bash
-aimcp project remove <项目 ID、项目名或目录>
-```
-
-如果当前终端就在项目目录，也可以省略目标：
-
-```bash
-aimcp project remove
-```
-
-这只会停用目标项目；后台服务、Cloudflare Tunnel 和其他项目仍然继续运行。重新启用时，再运行 `aimcp start` 或 `aimcp project add <目录>`。
-
-Web Console 的“已登记项目列表”还提供 **移除**：确认后取消项目登记、清除该项目的会话绑定并停止其运行资源。本地项目文件保留，其他项目与 MCP 服务继续运行；需要恢复时重新添加目录即可。“停用 / 启用”仍用于保留登记记录的临时停用。
-
----
-
-## 停止或重启后台服务
-
-停止：
-
-```bash
-aimcp stop
-```
-
-重启：
-
-```bash
-aimcp restart
-```
-
-`stop` 只关闭 MCP Runtime、项目运行态和 Cloudflare Tunnel，**Controller / Web Console 继续运行**，项目注册状态也会保留。`restart` 只重启当前 Runtime，并保持当前运行模式。
-
-如果要把 aimcp 的 Controller 和 Runtime 都完全关闭：
-
-```bash
-aimcp shutdown
-```
+| 类别 | 命令 | 说明 |
+| :--- | :--- | :--- |
+| **服务启停** | `aimcp open` | 打开本机 Web 管理控制台（不启动 Runtime） |
+| | `aimcp start` | 注册当前项目并启动/复用后台服务（默认复用上次模式） |
+| | `aimcp start --local` | 显式以**纯本机模式**启动（无需域名和密码） |
+| | `aimcp start --public` | 显式以**公网接入模式**启动（需先配置公网和密码） |
+| | `aimcp status` | 查看运行状态、当前模式、本地/公网地址及已注册项目 |
+| | `aimcp stop` | 停止 MCP Runtime 与公网隧道（Web 控制台继续在线） |
+| | `aimcp restart` | 重启 MCP Runtime（代码更新或配置更改后执行） |
+| | `aimcp shutdown` | 彻底关闭后台服务与 Web 控制台 |
+| **项目管理** | `aimcp project list` | 查看所有已登记的项目列表 |
+| | `aimcp project add [目录]` | 登记新项目目录（默认当前目录） |
+| | `aimcp project remove [项目]` | 停用/注销指定项目（不删除代码文件） |
+| | `aimcp bindings clean [项目]` | 清理指定项目的旧对话会话绑定记录 |
+| **诊断配置** | `aimcp setup` | 首次配置或修改公网连接、域名与外部能力 |
+| | `aimcp auth` | 重设/修改远程连接密码 |
+| | `aimcp doctor` | 检查环境依赖、搜索组件及网络隧道健康状态 |
+| | `aimcp doctor --fix` | 自动修复缺失组件、创建目录及异常状态 |
+| | `aimcp logs [-f]` | 查看最新运行日志（`-f` 持续跟踪） |
+| | `aimcp update` | 升级到最新发布版本 |
 
 ---
 
-# MCP 客户端可以做什么？
+## 🧩 外部能力与 Skills 导入
 
-连接项目以后，MCP 客户端可以通过 aimcp：
-
-### 读取和搜索代码
-
-- 读取单个或多个文件
-- 搜索字符串和正则表达式
-- 按文件模式查找文件
-- 浏览目录
-- 查找代码关系
-
-### 修改代码
-
-- 使用事务式 `apply_patch` 精确替换已有代码
-- 批量创建、覆盖或删除文件
-- 提交失败时自动回滚本次批量改动
-
-### 执行命令
-
-- 运行构建
-- 运行测试
-- 安装依赖
-- 启动开发服务器
-- 管理长时间运行的进程
-
-### Git
-
-- 通过 `exec_command` 使用项目现有的 Git CLI
-
-### 项目切换
-
-当你说：
-
-> 继续这个项目。
-
-或者：
-
-> 先看看这个项目现在是什么情况。
-
-客户端会先用 `project_control` 查看并绑定一个已注册项目，再通过精简工具集读取代码、Skills 和命令结果。一个 MCP 会话同一时间只绑定一个项目。
-
----
-
-# 项目路径边界
-
-所有文件工具和命令工作目录都限制在当前绑定项目的主目录内。
-
-## 当前项目
-
-运行：
-
-```bash
-cd ~/code/my-project
-aimcp start
-```
-
-那么：
+`aimcp` 可以无缝复用你本地已有 AI 工具的配置与技能，无需重复拷贝：
 
 ```text
-~/code/my-project
+~/.gemini/settings.json ──┐
+~/.codex/ ───────────────┼──► [aimcp 自动探测与引用] ──► 统一供给当前对话
+~/.claude/ ──────────────┤
+~/.agents/skills/ ───────┘
 ```
 
-就是这个项目的主工作区。
-
-相对路径默认都从这里开始。
+- **只读引用安全**：只读取并加载外部工具与 Skills 配置，绝不会将你的第三方 Token 与私有密钥写入公网或复制到 `~/.ai-mcp`。
+- **动态热更新**：支持 `watch` 监听模式，当外部技能文件修改后，`aimcp` 会自动刷新能力清单。
 
 ---
 
-## 访问其他目录
+## ❓ 故障排查与自愈决策树
 
-需要处理另一个目录时，把它注册成独立项目：
-
-```bash
-aimcp project add /path/to/other-project
-```
-
-然后让 MCP 客户端使用 `project_control` 明确切换。工具不会通过绝对路径绕过当前项目边界。
-
-> 路径限制不是完整的操作系统沙箱。项目内启动的 shell 命令仍然拥有当前系统用户本身拥有的系统权限。
-
----
-
-# 使用 ChatGPT、Gemini 的本机能力与 Skills
-
-aimcp 可以直接读取已有 AI 开发工具的配置，而不是复制一份。
-
-支持：
-
-| 来源 | MCP | Skills |
-|---|---:|---:|
-| ChatGPT（Codex CLI） | ✅ | ✅ |
-| Gemini CLI | ✅ | ✅ |
-| Claude Code（兼容） | ✅ | ✅ |
-| Agent Skills | — | ✅ |
-
-常见位置包括：
+遇到问题时，可按下面的决策树快速自愈：
 
 ```text
-~/.codex/
-~/.gemini/settings.json
-~/.gemini/skills/
-~/.agents/skills/
-~/.claude/  # 兼容旧配置
+遇到连接或运行异常？
+        │
+        ▼
+   执行 aimcp doctor
+        │
+        ├─► 报告“组件缺失” (如 ripgrep)？
+        │     └─► 运行 aimcp doctor --fix 自动下载恢复
+        │
+        ├─► 客户端频繁“断开连接”或网络超时？
+        │     ├─► 本机客户端 (Gemini CLI) ──► 优先用 aimcp start --local 回环直连
+        │     ├─► 桌面端沙盒拦截 ──► 检查是否已将项目目录加入 Connected Folders
+        │     └─► 代码刚更新 ──► 运行 aimcp restart 重启后台生效
+        │
+        ├─► 提示“密码错误或忘记密码”？
+        │     └─► 运行 aimcp auth 重新设置连接密码
+        │
+        └─► 仍有未知报错？
+              └─► 运行 aimcp logs -f 查看实时运行日志与报错堆栈
 ```
 
-Gemini CLI 项目内的 `.gemini/settings.json`、`.gemini/skills` 按已选择的项目读取，项目同名配置优先于用户配置。也保留 Claude Code 的 `.mcp.json`、`.claude/skills` 兼容。
+---
 
-在控制台“系统 → 外部工具与技能”开启 Gemini CLI，勾选“透传 MCP 工具”或“读取 Skills 技能包”并保存后生效；升级不会自动开启新来源。遵守 `mcp.allowed`、`mcp.excluded`、持久化 MCP 停用记录、`skills.enabled`、`skills.disabled` 以及系统设置中的 MCP / Skills 开关。Gemini 的 CLI 内置与扩展技能、会话临时停用、独立策略文件和 `.agents/skills` 别名不在 Gemini 来源导入范围内；检测到独立策略路径时停止导入 MCP 服务；共享 Agent Skills 来源有独立开关。
-
-支持 stdio 与 Streamable HTTP（`httpUrl` 或 `type: "http"` + `url`）。SSE、Gemini 托管 OAuth / Google 身份认证、工具过滤等无法安全重现的服务会跳过并显示诊断提示；不会读取 Gemini 登录令牌。配置变化支持自动同步。格式参考 [Gemini MCP](https://geminicli.com/docs/tools/mcp-server/) 和 [Gemini Skills](https://geminicli.com/docs/cli/using-agent-skills/) 官方文档。
-
-这些能力默认只是**读取和引用原配置**，不会把第三方 Token、MCP 配置和 Skill 文件复制到 `~/.ai-mcp`。
-
-重新管理这些设置：
+## 💻 本地开发
 
 ```bash
-aimcp setup
-```
-
-然后选择：
-
-```text
-管理外部能力
-```
-
-支持两种同步方式：
-
-- `watch`：配置发生变化后自动刷新，推荐
-- `startup`：只在 aimcp 启动时读取一次
-
----
-
-# 常用命令
-
-| 命令 | 作用 |
-|---|---|
-| `aimcp` | 显示帮助，不隐式启动服务 |
-| `aimcp open` | 启动/复用本机 Controller 并打开 Web Console；不启动 Runtime |
-| `aimcp start` | 先注册当前项目，再按保存的模式启动/复用 MCP Runtime |
-| `aimcp status` | 查看 Controller、MCP Runtime、默认运行模式、Tunnel 和所有项目 |
-| `aimcp status --json` | 输出稳定的机器可读状态，其中包含本机 Web Console 地址 |
-| `http://127.0.0.1:<Controller端口>/` | 打开完整本机 Web Console；可执行 CLI 的用户级操作 |
-| `aimcp restart` | 重启 MCP Runtime，保留 Controller 和项目注册状态 |
-| `aimcp stop` | 停止 MCP Runtime 和 Tunnel；Controller / Web Console 保持在线 |
-| `aimcp shutdown` | 完全关闭 MCP Runtime 和 Controller / Web Console |
-| `aimcp project list` | 查看已注册项目 |
-| `aimcp project add [目录]` | 只注册项目，默认当前目录；不会启动 Runtime |
-| `aimcp project remove [项目]` | 停用项目，默认当前目录 |
-| `aimcp project info [项目]` | 查看项目详情 |
-| `aimcp bindings clean [项目]` | 交互清理指定项目的旧会话绑定，默认当前项目 |
-| `aimcp logs [--lines N]` | 查看最近运行日志 |
-| `aimcp logs -f` | 持续跟随运行日志 |
-| `aimcp setup` | 首次设置或管理现有配置 |
-| `aimcp doctor` | 只读检查安装、配置和依赖 |
-| `aimcp doctor --fix` | 恢复缺失组件、创建本机目录、清理失效状态、重连中断的本机托管隧道 |
-| `aimcp auth` | 修改远程 MCP 连接密码 |
-| `aimcp update` | 更新到最新版本 |
-| `aimcp start --root <目录>` | 注册指定目录，而不是当前目录 |
-| `aimcp start --local` | 显式切换并保存为本机模式，不开放公网 |
-| `aimcp start --public` | 显式切换并保存为公网模式；需要先配置公网连接和密码 |
-| `aimcp start --no-tunnel` | 公网模式下不自动启动 Cloudflare Tunnel |
-| `aimcp start --tunnel-logs` | 把 Tunnel 日志同时输出到运行日志 |
-| `aimcp --version` | 查看版本 |
-| `aimcp help` | 查看帮助 |
-
----
-
-# 再次运行 setup 会发生什么？
-
-已经完成首次配置后，再运行：
-
-```bash
-aimcp setup
-```
-
-不会重新走一遍所有步骤。
-
-你可以选择：
-
-- 检查当前配置
-- 修改公网连接
-- 重新登录 / 切换 Cloudflare 账号
-- 修改连接密码
-- 管理 ChatGPT / Gemini / Agent Skills（保留 Claude 兼容）
-- 退出，不做修改
-
-“检查当前配置”会真实验证公网地址是否能够连接回当前电脑，而不只是检查配置文件是否存在。
-这个检查只读取已提交配置和运行状态，不会登录 Cloudflare、修改 DNS 或重写 Tunnel 配置。
-
-修改公网连接时，如果后台服务正在运行，setup 会先保留它的完整运行参数和所有项目注册，安全停止后完成切换，再按原参数恢复。多项目和会话绑定文件不会被重置。
-
----
-
-# 配置保存在哪里？
-
-aimcp 的用户数据默认保存在：
-
-目录名沿用旧版，以便现有项目、连接密码和 Tunnel 配置在升级后继续使用。
-
-```text
-~/.ai-mcp/
-```
-
-主要文件包括：
-
-```text
-~/.ai-mcp/config.json
-~/.ai-mcp/controller.json
-~/.ai-mcp/daemon.json
-~/.ai-mcp/projects.json
-~/.ai-mcp/session-bindings.json
-~/.ai-mcp/logs/
-```
-
-其中：
-
-- `config.json`：监听地址、公网连接、外部能力、客户端工具策略和 UI 设置
-- `controller.json`：仅本机 Controller 的 PID、loopback 端口和随机控制凭据；Web Console 由它提供
-- `daemon.json`：当前 MCP Runtime 状态；执行 `stop` 后会移除，而 Controller 继续运行
-- `projects.json`：注册过的项目
-- `session-bindings.json`：MCP 会话和项目的绑定关系
-
-Cloudflare 的登录和 Tunnel 凭据由 aimcp 放在自己的配置目录中管理，不依赖系统级 `~/.cloudflared` 作为长期运行状态。
-
----
-
-# 日志
-
-运行日志位于：
-
-```text
-~/.ai-mcp/logs/
-```
-
-结构化日志文件类似：
-
-```text
-codex-mcp.2026-08-12.0.jsonl
-```
-
-Cloudflare Tunnel 原始日志：
-
-```text
-~/.ai-mcp/logs/tunnel.log
-```
-
-正常的工具日志不会记录：
-
-- 原始命令内容
-- 文件内容
-- 工具返回的完整内容
-- OAuth 凭据
-
-它主要记录工具名、耗时、结果状态等运行信息。
-
-如果遇到启动、Tunnel 或 MCP 连接问题，首先查看这里。
-
----
-
-# 检查问题
-
-运行：
-
-```bash
-aimcp doctor
-```
-
-它会检查：
-
-- Node.js 版本
-- Git
-- 文件搜索组件
-- aimcp 配置
-- 连接密码
-- 公网地址
-- cloudflared
-- Cloudflare 登录
-- Tunnel 凭据
-- Tunnel 配置文件
-- 外部能力设置
-- 项目登记、目录可读性和失效会话绑定
-- 当前运行版本与已安装版本是否一致
-- 真实 MCP 工具调用和项目列表读取
-- Cloudflare 远端 Tunnel / DNS 与已保存配置是否一致
-- 本机隧道连接状态、自动恢复次数、公网实例与 OAuth 发现入口
-
-检查会汇总错误与提示，并给出下一步建议；Web Console 的“系统”页面可以只查看问题。单个状态文件损坏不会中断其他诊断，读取失败的文件也不会被自动清空。本机模式不会把未启用的公网配置误报为当前运行故障。
-
-这是排查问题时最先应该运行的命令。
-
-如果文件搜索组件缺失，可以直接运行：
-
-```bash
-aimcp doctor --fix
-```
-
-它会下载项目固定版本的受管 ripgrep，校验 SHA-256，并在安装后重新验证版本；不需要重新执行整套安装脚本。
-
-已配置 Cloudflare 时，`--fix` 也会恢复缺失的受管 cloudflared。若当前公网服务的托管隧道中断，会校验已提交配置后，仅重启属于当前 Runtime 的本机隧道进程。MCP 服务、项目会话与已保存的连接配置保留，不改 DNS、不创建 Tunnel；已停止的服务不会因此启动。缺少或不匹配的凭据仍需人工处理。
-
-### Cloudflare 偶尔断开
-
-正常运行时，aimcp 持续跟踪连接事件，并每 15 秒检查 cloudflared 的本机 `/ready`。短暂中断优先等待 cloudflared 自行恢复；连接全部中断超过 3 分钟时，会重启本机隧道进程。进程意外退出同样会触发恢复。连续失败按退避与冷却周期继续重试，稳定连接 5 分钟后重置连续失败计数；停止服务会取消监测与重试。
-
-健康端口只绑定 `127.0.0.1` 的随机端口。自动恢复复用原 Tunnel ID、凭据与配置，通常不需要再次登录或运行 setup。网络必须允许 Cloudflare 的 UDP / TCP 7844；网络限制、远端资源删除或凭据损坏需要按 doctor 的具体提示处理。候选配置验证仍使用有界启动与清理，不会无限重试。
-
-升级后运行 `aimcp restart`，新恢复机制才会用于正在运行的服务。
-
----
-
-# 常见问题
-
-## `aimcp` 命令找不到
-
-重新打开终端后再试。
-
-如果仍然找不到，重新运行安装脚本。
-
----
-
-## ChatGPT 连接不上
-
-先运行：
-
-```bash
-aimcp status
-aimcp doctor
-```
-
-确认：
-
-- 后台服务正在运行
-- 公网连接已启动
-- 公网地址正确
-- Tunnel 没有报错
-
-再查看：
-
-```text
-~/.ai-mcp/logs/
-```
-
----
-
-## 忘记连接密码
-
-密码明文无法找回。
-
-重新设置：
-
-```bash
-aimcp auth
-```
-
----
-
-## Cloudflare 登录错了账号
-
-运行：
-
-```bash
-aimcp setup
-```
-
-选择：
-
-```text
-重新登录 / 切换 Cloudflare 账号
-```
-
-aimcp 会在临时目录完成新登录并验证凭据，然后才替换自己管理的登录；取消或登录失败时旧凭据保持不变。它不会修改系统级 `~/.cloudflared`。
-
----
-
-## Cloudflare 上有旧 Tunnel，配置对不上
-
-重新运行：
-
-```bash
-aimcp setup
-```
-
-aimcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配。
-
-如果发现同名 Tunnel 但本机没有可用凭据，不会删除远端 Tunnel，而是创建带唯一后缀的 candidate。只有本次新建、配置尚未提交且没有被 DNS 引用的 candidate 才会自动清理。
-
----
-
-## Tunnel 一直连接不上
-
-查看：
-
-```text
-~/.ai-mcp/logs/tunnel.log
-```
-
-某些网络或防火墙会阻止 Cloudflare Tunnel 使用的 TCP 7844 连接。
-
-当前版本会优先使用 IPv4，并在连接超时时给出更具体的错误提示。
-
----
-
-## ChatGPT 看不到新的精简工具列表
-
-先在 ChatGPT 的 MCP / App 设置中执行 Refresh，或者重新发布 / 重新连接当前 MCP App。
-
-工具 ABI 已精简为固定的 15 个入口。旧的 ChatGPT action snapshot 不再兼容已删除的工具，因此升级后必须让 ChatGPT 重新扫描工具。
-
----
-
-## 我需要每个项目启动一个 aimcp 吗？
-
-不需要。
-
-每个项目只需要运行一次：
-
-```bash
-aimcp start
-```
-
-用来把它注册到同一个后台服务。
-
-真正运行的 MCP server 和 Cloudflare Tunnel 都只有一套。
-
----
-
-## 关闭终端以后 aimcp 会停吗？
-
-默认不会。
-
-正常的 `aimcp start` 会启动后台守护进程，终端命令完成后服务继续运行。
-
-查看：
-
-```bash
-aimcp status
-```
-
-停止后台服务：
-
-```bash
-aimcp stop
-```
-
----
-
-# 更新
-
-## 保存目录迁移
-
-默认保存目录统一为 `~/.ai-mcp`（用户主目录下的隐藏目录）。升级前运行：
-
-```bash
-aimcp shutdown
-npm install -g @rookiedj/aimcp@latest
-aimcp open
-```
-
-新版 CLI 第一次正常运行时会将 `~/.codex-mcp` 的私有数据复制到 `~/.ai-mcp`，保留原目录作为备份。项目登记、绑定、聊天记录、密码、OAuth 身份、Cloudflare 凭据均保留；自动修正托管 cloudflared 路径与 Tunnel YAML 的凭据路径，不重新创建 Tunnel 或修改 DNS。旧 npm 安装保留在旧目录，不复制到新保存目录。
-
-旧服务运行时迁移会暂停，新版 `aimcp shutdown` 也能通过验证过的本机控制接口关闭旧服务。新旧目录都已有独立数据时拒绝覆盖；软链接、未知进程状态和无效配置会阻止迁移，需先检查并备份。迁移锁发生异常遗留时，确认没有迁移进程后再处理 `~/.ai-mcp-migration.lock`。迁移失败保留旧数据；迁移本身不启动 Runtime，`open` 只打开控制台。
-
-此次目录迁移不转换早于 1.0 的废弃配置结构。遇到不支持的字段时按诊断提示处理，先备份，勿直接删除身份或凭据文件。
-
-之后可正常运行：
-
-```bash
-aimcp update
-```
-
-更新后运行：
-
-```bash
-aimcp restart
-```
-
-这样可以确保正在运行的 daemon 使用当前 CLI 版本。`aimcp status` 会同时显示 CLI 和 daemon 版本；如果两者不一致，会直接提示重启。
-
----
-
-# 卸载
-
-如果是通过本项目的 `npm link` 安装的：
-
-```bash
-npm unlink -g @rookiedj/aimcp
-```
-
-此操作只移除全局命令，不会删除用户配置和连接密码。
-
-如果你确定不再使用，并希望彻底删除所有状态，可以再手动删除：
-
-```text
-~/.ai-mcp
-```
-
----
-
-# 安全说明
-
-aimcp 的目标不是做一个强隔离沙箱，而是让受信任的 MCP 客户端可以在个人开发环境中完成开发工作。
-
-因此请注意：
-
-1. **不要把自己的 aimcp 实例分享给其他人。**
-2. **不要把连接密码公开。**
-3. **只注册你信任的项目目录。**
-4. **执行 shell 命令时，命令仍拥有当前系统用户本身的权限。**
-5. **如果电脑上保存了生产环境密钥、SSH Key 或其他敏感文件，请按照正常本机开发安全标准管理它们。**
-
-公网 MCP 入口需要连接密码认证，但它不能替代操作系统级隔离。
-
----
-
-# 高级说明：ChatGPT 工具列表兼容
-
-正常情况下你不需要关心这一节。
-
-ChatGPT 有时会缓存已经批准过的 MCP action 列表。当前工具 ABI 是固定的 15 个入口，升级后请在 ChatGPT 中 Refresh MCP App 或重新发布连接，让旧的 action snapshot 被完整替换。项目选择统一使用 `project_control`，其他已删除工具没有兼容别名。
-
-## 已选择项目，但提示“当前会话还没有绑定项目”
-
-客户端可能在后续请求中省略或更换会话元数据。模型需要保存选择项目时返回的 `project_session`，并将其作为所有后续工具调用的参数。例如：
-
-```json
-{
-  "name": "read",
-  "arguments": {
-    "purpose": "读取项目说明",
-    "project_session": "<project_control 返回的 project_session>",
-    "path": "README.md"
-  }
-}
-```
-
-可以直接告诉客户端：“继续使用我已确认的项目，先调用 project_control 选择它，后续每次工具调用都携带返回的 project_session。”升级后刷新 MCP 工具列表，让客户端获取新增参数。该句柄可在 Runtime 重启后继续使用；取消绑定、移除项目或切换 OAuth 连接身份后，需要重新选择。它仅用于定位当前连接下的项目绑定，不能替代 OAuth 认证，也不能复用其他对话的句柄。
-
----
-
-# 本地开发
-
-克隆项目后：
-
-```bash
+# 1. 克隆代码仓库
+git clone https://github.com/rookieDJ/aimcp.git
+cd aimcp
+
+# 2. 安装依赖并构建
 npm ci
 npm run typecheck
 npm run build
+
+# 3. 本机快速启动调试
+npm run start:local
 ```
-
-开发模式：
-
-```bash
-npm run dev
-```
-
-只在本机调试：
-
-```bash
-npm run dev:once -- --local
-```
-
-发布版本要求 Node.js 22。日常 CI 和发版验收都会在 Linux、macOS、Windows 上运行类型检查、完整测试和真实 tarball 隔离安装 smoke；发布流程只分发已经通过 smoke 的同一个 tarball artifact。
 
 ---
 
-# License
+## 🔒 安全说明
+
+- **受限作用域**：`aimcp` 严格将文件读写与搜索限制在绑定的项目主目录内，避免越界访问系统其他文件。
+- **公网强认证**：公网模式启用强密码鉴权与 OAuth 流程，切勿将公网接口地址和连接密码分享给他人。
+- **执行权限警示**：终端执行命令继承当前系统操作用户的权限，请始终连接你信任的模型客户端与项目。
+
+---
+
+## 📄 License
 
 [MIT](LICENSE)
