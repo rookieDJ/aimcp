@@ -53,12 +53,17 @@ export function migrateLegacyUserData(home = homedir()): boolean {
         ensurePrivateDirectory(stage);
         // A freshly installed npm prefix may already occupy the target. Preserve it.
         if (existsSync(target)) for (const name of readdirSync(target)) {
+            if (name === "bin") {
+                copyManagedBin(join(target, name), join(stage, name));
+                continue;
+            }
             assertOwned(join(target, name), true);
             cpSync(join(target, name), join(stage, name), { recursive: true, dereference: false, verbatimSymlinks: true });
         }
         for (const name of readdirSync(source)) {
             if (name === "npm" || TRANSIENT.has(name)) continue;
-            copyPrivate(join(source, name), join(stage, name), name === "bin");
+            if (name === "bin") copyManagedBin(join(source, name), join(stage, name));
+            else copyPrivate(join(source, name), join(stage, name));
         }
         const configPath = join(stage, "config.json");
         if (existsSync(configPath)) {
@@ -103,6 +108,19 @@ export function migrateLegacyUserData(home = homedir()): boolean {
             const current = lstatSync(lock);
             if (current.ino === lockIdentity.ino && current.dev === lockIdentity.dev) rmSync(lock);
         } catch { /* lock was already removed */ }
+    }
+}
+
+function copyManagedBin(source: string, target: string): void {
+    assertOwned(source, true);
+    ensurePrivateDirectory(target);
+    for (const name of readdirSync(source)) {
+        const path = join(source, name);
+        // Legacy rg shims are replaceable tool cache, not private state. Never
+        // follow them (including dangling links); doctor can use system rg or
+        // install a checksum-verified real binary. Leave the original untouched.
+        if ((name === "rg" || name === "rg.exe") && lstatSync(path).isSymbolicLink()) continue;
+        copyPrivate(path, join(target, name), true);
     }
 }
 
