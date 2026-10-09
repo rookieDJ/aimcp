@@ -13,6 +13,11 @@ import { runWithToolInvocationContext, setToolProjectOwner } from "./context.js"
 const TOOL_NAME_WIDTH = 18;
 const toolRegistrationPolicies = new WeakMap<McpServer, ReadonlySet<string>>();
 const projectSessionResolvers = new WeakMap<McpServer, (handle: string) => string | undefined>();
+const contextObservers = new WeakMap<McpServer, (bytes: number) => boolean>();
+
+export function configureToolContextObserver(server: McpServer, observe: (bytes: number) => boolean): void {
+    contextObservers.set(server, observe);
+}
 
 export function configureToolProjectSessions(
     server: McpServer,
@@ -227,7 +232,11 @@ export function registerTool(
                     if (ownerId) setToolProjectOwner(ownerId);
                     else sessionError = errorResult("project_session 已失效或不属于当前连接。请在用户确认的项目上重新调用 project_control(action=select)，并在后续调用中携带返回的 project_session。");
                 }
-                const result = withUiCardMeta(name, args, sessionError ?? await handler(executionArgs));
+                let raw = sessionError ?? await handler(executionArgs);
+                if (!raw.isError && name !== "project_control" && contextObservers.get(server)?.(estimateResultBytes(raw))) {
+                    raw = { ...raw, content: [...(raw.content ?? []), { type: "text", text: "长任务检查点提醒：本会话已产生较多 MCP 调用或输出（不是模型 token 用量）。请用 project_control(action=checkpoint, project_session, checkpoint={id,summary,next_steps,previous_id}) 保存精简任务状态；首次 previous_id=null，更新前 restore 读取上一份 id。勿包含凭据或隐藏推理。需要恢复时调用 action=restore。此工具不能清空 Gemini App 的上下文。" }] };
+                }
+                const result = withUiCardMeta(name, args, raw);
                 const durationMs = performance.now() - startedAt;
                 runtimeTelemetry.recordTool(
                     name,

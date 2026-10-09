@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+export { inspectGeminiCompression, configureGeminiCompression } from "../config/gemini-compression.js";
 import { bindingPresentationId, presentBindings, validateProjectFolder } from "./project-selection.js";
 import { generateAdminPassword, hasAdminPassword, setAdminPassword, verifyAdminPassword } from "../auth/password-store.js";
 import { CapabilityManager } from "../capabilities/manager.js";

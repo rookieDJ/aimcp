@@ -5,6 +5,7 @@ import { DownstreamMcpHub } from "../downstream/hub.js";
 import { ProcessOwnerPool } from "../lib/process/owner-pool.js";
 import { ProcessSessionManager } from "../lib/process/sessions.js";
 import { RoundChangeStore } from "../lib/tool/round-changes.js";
+import { ContextProgress } from "./context-progress.js";
 import { writeRuntimeLog } from "../lib/runtime-log.js";
 import type { SkillRegistry } from "../skills/registry.js";
 
@@ -14,6 +15,7 @@ export interface ProjectRuntime {
     readonly rootProcesses: ProcessSessionManager;
     readonly processOwners: ProcessOwnerPool;
     readonly roundChanges: RoundChangeStore;
+    readonly contextProgress: ContextProgress;
 }
 
 export interface ProjectCapabilityRuntime {
@@ -39,6 +41,7 @@ export class ProjectRuntimeManager {
             rootProcesses,
             processOwners: new ProcessOwnerPool(rootProcesses),
             roundChanges: new RoundChangeStore(),
+            contextProgress: new ContextProgress(),
         };
         this.runtimes.set(id, runtime);
         writeRuntimeLog("info", "project_runtime_created", { project: id });
@@ -64,6 +67,7 @@ export class ProjectRuntimeManager {
     async shutdownOwner(id: string, ownerId: string): Promise<void> {
         const runtime = this.runtimes.get(id);
         if (!runtime) return;
+        runtime.contextProgress.reset(ownerId);
         await runtime.processOwners.shutdownOwner(ownerId);
     }
 

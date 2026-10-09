@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { Download, Refresh, Tools } from "@element-plus/icons-vue";
 import { api, friendlyError, type CapabilityConfig, type OperationSnapshot, type SetupSummary } from "../api.js";
 import CapabilitiesPanel from "../components/CapabilitiesPanel.vue";
+import GeminiCompressionPanel from "../components/GeminiCompressionPanel.vue";
 import OperationPanel from "../components/OperationPanel.vue";
 import SpotlightCard from "../components/SpotlightCard.vue";
 
@@ -159,6 +160,10 @@ function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "dange
                         <div class="tab-pane-content">
                             <CapabilitiesPanel class="maintenance-capabilities" :setup="setup" :busy="busy" :save-capabilities="saveCapabilities" />
                         </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="上下文与摘要" name="context">
+                        <div class="tab-pane-content"><GeminiCompressionPanel v-if="tab === 'context'" :busy="busy" /></div>
                     </el-tab-pane>
 
                     <!-- Tab 3: Realtime Logs Terminal -->

@@ -15,14 +15,29 @@ export const chatMessageSchema = z.object({
     timestamp: z.iso.datetime().optional(),
 }).strict();
 const projectUseSchema = z.object({ projectId: z.string(), projectName: z.string(), firstSeenAt: z.iso.datetime(), lastSeenAt: z.iso.datetime() }).strict();
+export const contextCheckpointSchema = z.object({
+    id: z.string().min(1).max(128),
+    summary: z.string().min(1).max(8_000),
+    next_steps: z.array(z.string().min(1).max(400)).max(8),
+    previous_id: z.string().min(1).max(128).nullable(),
+}).strict();
+const storedCheckpointSchema = contextCheckpointSchema.extend({ projectId: z.string(), savedAt: z.iso.datetime() });
 const archiveSchema = z.object({
     schemaVersion: z.literal(1), id: z.string().regex(/^[a-f0-9]{32}$/), client: conversationClientSchema,
     title: z.string().max(200).optional(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
     projects: z.array(projectUseSchema), messages: z.array(chatMessageSchema),
+    checkpoints: z.array(storedCheckpointSchema).max(100).optional(),
 }).strict();
 export type ConversationClient = z.infer<typeof conversationClientSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ConversationArchive = z.infer<typeof archiveSchema>;
+export type ContextCheckpoint = z.infer<typeof contextCheckpointSchema>;
+
+/** Archives never restore permissions: callers must first resolve their live binding. */
+export function readContextCheckpoint(ownerKey: string, projectId: string) {
+    if (!isConversationRecordingEnabled()) return null;
+    return readConversation(conversationId(ownerKey))?.checkpoints?.find(item => item.projectId === projectId) ?? null;
+}
 export const clientLabel = (client: ConversationClient): string => client === "chatgpt" ? "ChatGPT" : client === "gemini" ? "Gemini" : "未识别客户端";
 export const conversationId = (ownerKey: string): string => createHash("sha256").update(ownerKey).digest("hex").slice(0, 32);
 const archiveDir = (): string => join(getUserConfigDir(), "conversations");
@@ -131,7 +146,7 @@ export function assertConversationClient(ownerKey: string, requested?: Conversat
 
 /** Separate from routing state: an archive never grants access or restores a binding. */
 export async function saveConversationUse(ownerKey: string, project: RegisteredProject, options: {
-    client?: ConversationClient; title?: string; messages?: ChatMessage[]; boundAt: string; lastSeenAt?: string; preserveDeletion?: boolean;
+    client?: ConversationClient; title?: string; messages?: ChatMessage[]; checkpoint?: ContextCheckpoint; boundAt: string; lastSeenAt?: string; preserveDeletion?: boolean;
 }): Promise<{ id: string; saved: number; messageCount: number; recordingEnabled: boolean }> {
     const id = conversationId(ownerKey);
     const path = archivePath(id);
@@ -156,6 +171,18 @@ export async function saveConversationUse(ownerKey: string, project: RegisteredP
             } else { record.messages.push(message); known.set(message.id, message); saved++; }
         }
         record.client = client;
+        if (options.checkpoint) {
+            const checkpoint = contextCheckpointSchema.parse(options.checkpoint);
+            if (Buffer.byteLength(JSON.stringify(checkpoint)) > 32 * 1024) throw new Error("摘要检查点最多 32 KB。");
+            const checkpoints = record.checkpoints ?? [];
+            const prior = checkpoints.find(item => item.projectId === project.id);
+            if (prior?.id === checkpoint.id) {
+                if (prior.summary !== checkpoint.summary || prior.previous_id !== checkpoint.previous_id || JSON.stringify(prior.next_steps) !== JSON.stringify(checkpoint.next_steps)) throw new Error("检查点编号已存在且内容不同，请使用新编号。");
+            } else {
+                if ((prior?.id ?? null) !== checkpoint.previous_id) throw new Error("检查点已变化，请先 restore 读取最新 id，再将它作为 previous_id 保存新摘要。");
+                record.checkpoints = [...checkpoints.filter(item => item.projectId !== project.id), { ...checkpoint, projectId: project.id, savedAt: now }];
+            }
+        }
         if (options.title !== undefined) record.title = z.string().min(1).max(200).parse(options.title);
         const use = record.projects.find(item => item.projectId === project.id);
         const lastSeenAt = options.lastSeenAt ?? now;
@@ -205,6 +232,6 @@ export function listConversationRecords(bindings: SessionBinding[], projects: Re
         return { id: record.id, client: record.client, label: clientLabel(record.client), title: record.title,
             ...use, bound: Boolean(binding), registered: projects.some(project => project.id === use.projectId),
             lastSeenAt: recordingEnabled && binding && binding.lastSeenAt > use.lastSeenAt ? binding.lastSeenAt : use.lastSeenAt,
-            messageCount: record.messages.length };
+            messageCount: record.messages.length, checkpointAt: record.checkpoints?.find(item => item.projectId === use.projectId)?.savedAt };
     })).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt)) };
 }

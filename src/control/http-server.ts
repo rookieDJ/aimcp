@@ -6,6 +6,8 @@ import { controllerPanelUrl, type ControllerState } from "./state.js";
 import { OperationManager } from "./operations.js";
 import {
     addProject,
+    inspectGeminiCompression,
+    configureGeminiCompression,
     cleanupProjectConversations,
     configureCloudflarePublicAccess,
     configureExternalPublicAccess,
@@ -290,6 +292,18 @@ export function createControllerHttpServer(options: ControllerHttpServerOptions)
             const workspace = typeof req.query.workspace === "string" ? req.query.workspace : process.cwd();
             res.json({ ok: true, ...(await getSetupSummary(workspace)) });
         } catch (error) { sendError(res, error); }
+    });
+
+    app.get("/api/gemini/compression", (_req, res) => {
+        try { res.json({ ok: true, compression: inspectGeminiCompression() }); }
+        catch (error) { sendError(res, error, 400); }
+    });
+    app.put("/api/gemini/compression", (req, res) => {
+        try {
+            const body = asRecord(req.body);
+            if (typeof body.revision !== "string" || (body.threshold !== null && typeof body.threshold !== "number")) throw new Error("需要 threshold 和 revision。");
+            res.json({ ok: true, compression: configureGeminiCompression({ threshold: body.threshold, revision: body.revision }) });
+        } catch (error) { sendError(res, error, 400); }
     });
 
     app.post("/api/setup/capabilities", (req, res) => {

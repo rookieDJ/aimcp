@@ -309,7 +309,7 @@ function cleanupConversations(project: Project, conversationIds: string[]): void
     }, "会话绑定已清理"), true);
 }
 function deleteConversationRecord(record: ConversationRecord): void {
-    void confirmAction(`删除“${record.title || record.label + ' 会话'}”的本地记录？`, "将永久删除此会话已保存的聊天内容及它在所有项目中的使用历史，无法恢复。当前项目绑定、项目文件和 GPT/Gemini 客户端聊天保留。客户端之后再次发送聊天内容或重新选择项目时，会生成新的记录。", "删除本地记录", () => runAction(async () => {
+    void confirmAction(`删除“${record.title || record.label + ' 会话'}”的本地记录？`, "将永久删除此会话已保存的聊天内容、摘要检查点及它在所有项目中的使用历史，无法恢复。当前项目绑定、项目文件和 GPT/Gemini 客户端聊天保留。客户端之后再次发送聊天内容或重新选择项目时，会生成新的记录。", "删除本地记录", () => runAction(async () => {
         await api(`/api/conversations/${encodeURIComponent(record.id)}`, { method: "DELETE" });
         if (liveRefresh) await liveRefresh;
         await refreshLive(false);

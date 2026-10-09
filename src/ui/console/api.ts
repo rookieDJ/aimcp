@@ -35,11 +35,19 @@ export interface ConversationRecord {
     id: string; client: "chatgpt" | "gemini" | "other"; label: string; title?: string;
     projectId: string; projectName: string; firstSeenAt: string; lastSeenAt: string;
     bound: boolean; registered: boolean; messageCount: number;
+    checkpointAt?: string;
 }
 export interface ConversationTranscript {
     id: string; client: ConversationRecord["client"]; title?: string;
     messages: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp?: string }>;
     projects: Array<{ projectId: string; projectName: string }>;
+    checkpoints?: Array<{ id: string; projectId: string; savedAt: string; summary: string; next_steps: string[] }>;
+}
+export interface GeminiCompression {
+    threshold: number;
+    source: "default" | "user";
+    revision: string;
+    requiresRestart: true;
 }
 export interface ProjectSuggestion { name: string; path: string; source: "recent" | "discovered"; }
 export interface ConnectionCheck {
