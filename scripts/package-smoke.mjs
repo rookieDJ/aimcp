@@ -29,11 +29,11 @@ const env = {
     npm_config_cache: join(scratch, "npm-cache"),
 };
 
-mkdirSync(join(home, ".codex-mcp"), { recursive: true });
+mkdirSync(join(home, ".ai-mcp"), { recursive: true });
 mkdirSync(project, { recursive: true });
 mkdirSync(packDir, { recursive: true });
 writeFileSync(
-    join(home, ".codex-mcp", "config.json"),
+    join(home, ".ai-mcp", "config.json"),
     JSON.stringify({
         port: 0,
         capabilities: {
@@ -103,7 +103,7 @@ try {
     started = false;
     const stopped = JSON.parse(run(binShim, ["status", "--json"], { cwd: project }));
     assert.equal(stopped.running, false);
-    assert.equal(existsSync(join(home, ".codex-mcp", "daemon.json")), false);
+    assert.equal(existsSync(join(home, ".ai-mcp", "daemon.json")), false);
     assert.equal(stopped.controller.pid, status.controller.pid);
     const panel = await fetch(stopped.controller.panelUrl);
     assert.equal(panel.status, 200);
@@ -114,7 +114,7 @@ try {
     assert.equal(consoleStyle.status, 200);
     assert.match(consoleScript.headers.get("content-type") ?? "", /javascript/);
     assert.match(consoleStyle.headers.get("content-type") ?? "", /text\/css/);
-    const controllerStatePath = join(home, ".codex-mcp", "controller.json");
+    const controllerStatePath = join(home, ".ai-mcp", "controller.json");
     const controllerState = JSON.parse(readFileSync(controllerStatePath, "utf8"));
     const shutdown = await fetch(`http://127.0.0.1:${controllerState.port}/api/controller/shutdown`, {
         method: "POST",
@@ -132,7 +132,7 @@ try {
         try { run(binShim, ["stop"], { cwd: project, timeout: 30_000 }); }
         catch { /* best-effort cleanup for a failed smoke */ }
     }
-    const controllerStatePath = join(home, ".codex-mcp", "controller.json");
+    const controllerStatePath = join(home, ".ai-mcp", "controller.json");
     if (existsSync(controllerStatePath)) {
         try {
             const controllerState = JSON.parse(readFileSync(controllerStatePath, "utf8"));

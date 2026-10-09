@@ -68,8 +68,8 @@ test("client-uploaded chat is private, retry-safe, separate per client and retai
     const stored = readConversation(gptId);
     assert.equal(stored.client, "chatgpt"); assert.deepEqual(stored.messages, messages);
     assert.equal(readConversation(geminiId).client, "gemini");
-    assert.equal(statSync(join(home, ".codex-mcp/conversations", gptId + ".json")).mode & 0o777, 0o600);
-    assert.equal(readFileSync(join(home, ".codex-mcp/conversations", gptId + ".json"), "utf8").includes(owner), false);
+    assert.equal(statSync(join(home, ".ai-mcp/conversations", gptId + ".json")).mode & 0o777, 0o600);
+    assert.equal(readFileSync(join(home, ".ai-mcp/conversations", gptId + ".json"), "utf8").includes(owner), false);
     assert.throws(() => readConversation("../../outside"), /编号无效/);
     await Promise.all([saveConversationUse(owner, projects[0], { boundAt: stored.createdAt, messages: [{ id: "parallel-a", role: "user", content: "A" }] }), saveConversationUse(owner, projects[0], { boundAt: stored.createdAt, messages: [{ id: "parallel-b", role: "assistant", content: "B" }] })]);
     assert.equal(readConversation(gptId).messages.length, 4);
@@ -86,7 +86,7 @@ test("client-uploaded chat is private, retry-safe, separate per client and retai
     const legacyOwner = "local:noauth|openai-session:legacy-read-only";
     await bindings.bind(legacyOwner, projects[1].id);
     await fetch(base + "/api/console/snapshot", { headers });
-    assert.equal(existsSync(join(home, ".codex-mcp/conversations", conversationId(legacyOwner) + ".json")), false);
+    assert.equal(existsSync(join(home, ".ai-mcp/conversations", conversationId(legacyOwner) + ".json")), false);
     await bindings.unbind(legacyOwner);
     const snapshot = await (await fetch(base + "/api/console/snapshot", { headers })).json();
     assert.equal(snapshot.conversationRecords.filter(item => item.client === "chatgpt").length, 1);
@@ -101,10 +101,10 @@ test("client-uploaded chat is private, retry-safe, separate per client and retai
     const deleteOptions = { method: "DELETE", headers: { ...headers, "x-csrf-token": csrf, origin: base } };
     assert.equal((await fetch(endpoint, deleteOptions)).status, 200);
     assert.equal(readConversation(gptId), undefined);
-    assert.equal(existsSync(join(home, ".codex-mcp/conversations", gptId + ".json")), false);
+    assert.equal(existsSync(join(home, ".ai-mcp/conversations", gptId + ".json")), false);
     assert.equal(bindings.resolve(owner).projectId, projects[0].id);
     assert.equal(readConversation(geminiId).messages.length, 2);
-    const deletedMarker = JSON.parse(readFileSync(join(home, ".codex-mcp/conversations", gptId + ".json.deleted"), "utf8"));
+    const deletedMarker = JSON.parse(readFileSync(join(home, ".ai-mcp/conversations", gptId + ".json.deleted"), "utf8"));
     assert.deepEqual(Object.keys(deletedMarker).sort(), ["client", "id", "schemaVersion"]);
     assert.equal(deletedMarker.client, "chatgpt");
     await archiveProjectBindings(projects[0], bindings.list());
@@ -115,7 +115,7 @@ test("client-uploaded chat is private, retry-safe, separate per client and retai
     assert.equal((await call({ action: "record", project_session: gpt, client: "gemini", messages })).isError, true);
     assert.equal((await record(gpt)).structuredContent.saved_messages, 2);
     assert.equal(readConversation(gptId).messages.length, 2);
-    assert.equal(existsSync(join(home, ".codex-mcp/conversations", gptId + ".json.deleted")), false);
+    assert.equal(existsSync(join(home, ".ai-mcp/conversations", gptId + ".json.deleted")), false);
     assert.equal((await fetch(base + `/api/conversations/${geminiId}`, deleteOptions)).status, 200);
     const geminiDeleted = await (await fetch(base + "/api/console/snapshot", { headers })).json();
     assert.equal(geminiDeleted.conversations.find(item => item.id === geminiId).label, "Gemini 会话");
@@ -134,7 +134,7 @@ test("client-uploaded chat is private, retry-safe, separate per client and retai
     assert.equal(after.conversationRecords.length, 2);
     assert.equal(after.conversationRecords.every(item => !item.bound && !item.registered), true);
     assert.equal((await (await fetch(base + `/api/conversations/${gptId}`, { headers })).json()).conversation.messages.length, 2);
-    writeFileSync(join(home, ".codex-mcp/conversations", geminiId + ".json"), "corrupted fixture");
+    writeFileSync(join(home, ".ai-mcp/conversations", geminiId + ".json"), "corrupted fixture");
     const degraded = await (await fetch(base + "/api/console/snapshot", { headers })).json();
     assert.equal(degraded.unavailableConversationRecords, 1);
     assert.equal(degraded.conversationRecords.length, 1);

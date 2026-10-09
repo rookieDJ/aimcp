@@ -27,8 +27,13 @@ export async function checkConnection(): Promise<ConnectionCheck> {
     const password = await hasAdminPassword();
     checks.push({ id: "password", label: "连接密码", state: password ? "passed" : "pending", detail: password ? "已设置连接密码。" : "设置密码后才能安全接受远程 MCP 连接。", ...(!password ? { action: "connect" as const } : {}) });
     if (access && daemon) {
+        let tunnelRecovering = false;
         try {
             const status = await daemon.client.status();
+            tunnelRecovering = access.kind === "cloudflare" && status.mode === "public" && !status.runtimeIntent.noTunnel && status.tunnel.state !== "connected";
+            if (tunnelRecovering) {
+                checks.push({ id: "tunnel", label: "Cloudflare 隧道", state: "pending", detail: "本机隧道正在恢复；配置已保留，可等待重连或在系统页面诊断并修复。", action: "repair" });
+            }
             if (!status.auth.required || status.publicMcpUrl !== `https://${access.domain}/mcp`) {
                 checks.push({ id: "public", label: "公网地址", state: "pending", detail: "当前服务仅在本机运行，请切换到公网模式以接受远程 MCP 连接。", action: "start" });
             } else {
@@ -38,7 +43,7 @@ export async function checkConnection(): Promise<ConnectionCheck> {
                 checks.push({ id: "public", label: "公网地址", state: "passed", detail: "公网地址指向当前服务，登录保护响应正常。" });
             }
         } catch {
-            checks.push({ id: "public", label: "公网地址", state: "failed", detail: "公网地址暂时不可用，请检查连接设置。", action: "connect" });
+            checks.push({ id: "public", label: "公网地址", state: "failed", detail: tunnelRecovering ? "隧道中断导致公网不可达，请等待自动恢复或运行诊断并修复，无需重新配置。" : "公网地址暂时不可用，请运行诊断检查隧道、DNS 与网络。", action: "repair" });
         }
     } else {
         checks.push({ id: "public", label: "公网地址", state: "pending", detail: configured ? "启动服务后再检查公网地址。" : "请先设置公网 MCP 地址。", action: configured ? "start" : "connect" });

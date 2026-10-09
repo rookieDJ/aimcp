@@ -21,7 +21,7 @@ export interface UserUiConfig {
     status?: boolean;
 }
 
-export type CapabilitySourceId = "agents" | "codex" | "claude";
+export type CapabilitySourceId = "agents" | "codex" | "gemini" | "claude";
 export type CapabilitySyncMode = "watch" | "startup";
 
 export interface CapabilitySourceConfig {
@@ -92,7 +92,7 @@ export type UserConfigPatch = Omit<UserConfig, "publicAccess"> & {
 };
 
 export function getUserConfigDir(): string {
-    return join(homedir(), ".codex-mcp");
+    return join(homedir(), ".ai-mcp");
 }
 
 export function getUserConfigPath(): string {
@@ -215,7 +215,7 @@ function invalidDomainError(value: string): Error {
     return new Error(`域名格式不正确：${value}`);
 }
 
-function normalizeUserConfig(raw: Record<string, unknown>): UserConfig {
+export function normalizeUserConfig(raw: Record<string, unknown>): UserConfig {
     const supportedKeys = new Set([
         "host",
         "port",
@@ -367,7 +367,7 @@ function normalizeCapabilitiesConfig(value: unknown): UserCapabilitiesConfig {
             throw new Error("capabilities.priority must be an array");
         }
         const priority = raw.priority.map((item, index) => {
-            if (item !== "agents" && item !== "codex" && item !== "claude") {
+            if (item !== "agents" && item !== "codex" && item !== "gemini" && item !== "claude") {
                 throw new Error(`capabilities.priority[${index}] is invalid`);
             }
             return item;
@@ -383,7 +383,7 @@ function normalizeCapabilitiesConfig(value: unknown): UserCapabilitiesConfig {
         }
         const sources: Partial<Record<CapabilitySourceId, CapabilitySourceConfig>> = {};
         for (const [sourceId, sourceValue] of Object.entries(raw.sources as Record<string, unknown>)) {
-            if (sourceId !== "agents" && sourceId !== "codex" && sourceId !== "claude") {
+            if (sourceId !== "agents" && sourceId !== "codex" && sourceId !== "gemini" && sourceId !== "claude") {
                 throw new Error(`capabilities.sources.${sourceId} is not supported`);
             }
             if (!sourceValue || typeof sourceValue !== "object" || Array.isArray(sourceValue)) {

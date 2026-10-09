@@ -1,10 +1,10 @@
-import { homedir } from "node:os";
+import { getUserConfigDir } from "../config/user-config.js";
 import { join } from "node:path";
 
 export type ManagedToolName = "ripgrep" | "cloudflared";
 
 export function getManagedBinDir(): string {
-    return join(homedir(), ".codex-mcp", "bin");
+    return join(getUserConfigDir(), "bin");
 }
 
 export function getManagedToolPath(tool: ManagedToolName): string {

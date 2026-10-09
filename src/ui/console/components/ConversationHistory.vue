@@ -104,7 +104,7 @@ defineExpose({ showById, focusProject });
             <el-table-column label="聊天内容" width="145"><template #default="{ row }"><el-button link type="primary" @click="show(row)">{{ row.messageCount ? `查看 ${row.messageCount} 条消息` : '客户端未发送' }}</el-button></template></el-table-column>
             <el-table-column label="操作" width="115" fixed="right"><template #default="{ row }"><el-button text type="danger" :disabled="busy" @click="emit('delete', row)">删除记录</el-button></template></el-table-column>
         </el-table>
-        <p class="muted small history-storage-note">保存目录：~/.codex-mcp/conversations/。仅保存客户端通过 MCP 实际发送的可见消息，无法自动读取整个聊天窗口。</p>
+        <p class="muted small history-storage-note">保存目录：~/.ai-mcp/conversations/。仅保存客户端通过 MCP 实际发送的可见消息，无法自动读取整个聊天窗口。</p>
 
         <el-drawer v-model="open" title="已保存聊天内容" size="min(680px, 94vw)" class="chat-transcript-drawer">
             <template v-if="selected">

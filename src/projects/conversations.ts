@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { getUserConfigDir, isConversationRecordingEnabled } from "../config/user-config.js";
@@ -26,7 +25,7 @@ export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ConversationArchive = z.infer<typeof archiveSchema>;
 export const clientLabel = (client: ConversationClient): string => client === "chatgpt" ? "ChatGPT" : client === "gemini" ? "Gemini" : "未识别客户端";
 export const conversationId = (ownerKey: string): string => createHash("sha256").update(ownerKey).digest("hex").slice(0, 32);
-const archiveDir = (): string => join(homedir(), ".codex-mcp", "conversations");
+const archiveDir = (): string => join(getUserConfigDir(), "conversations");
 const MAX_ARCHIVE_BYTES = 8 * 1024 * 1024;
 
 function archivePath(id: string): string {

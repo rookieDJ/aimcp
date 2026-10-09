@@ -1,8 +1,8 @@
 # aimcp
 
-让 Gemini CLI 或 ChatGPT 通过 MCP 操作你电脑上的代码项目。
+让 ChatGPT 或 Gemini 通过 MCP 操作你电脑上的代码项目。
 
-安装并连接后，你可以在 Gemini CLI 或 ChatGPT 里直接说：
+安装并连接后，你可以在 ChatGPT 或 Gemini 里直接说：
 
 - “先看看这个项目是做什么的”
 - “检查一下现在有哪些改动”
@@ -36,7 +36,7 @@ MCP Runtime ─────── 工具执行、OAuth、项目运行态
 Cloudflare Tunnel 或你自己的 HTTPS 入口
        │
        ▼
-ChatGPT 或 Gemini CLI
+ChatGPT / Gemini
 ```
 
 Controller 只监听本机，负责管理状态；Runtime 可以启动或停止。`aimcp stop` 只停止 Runtime，所以 Web Console 仍然能打开并用于修复配置；`aimcp shutdown` 才会把两者都关闭。
@@ -74,8 +74,9 @@ aimcp 可以自动创建和管理 Cloudflare Tunnel。
 
 如果电脑上已经安装了这些工具，aimcp 还可以读取它们已有的能力：
 
-- Codex
-- Claude Code
+- ChatGPT（Codex CLI 本机能力）
+- Gemini CLI
+- Claude Code（旧配置兼容）
 - Agent Skills
 
 没有这些也不影响 aimcp 的核心功能。
@@ -119,7 +120,7 @@ aimcp open
 1. 在“项目”里添加 MCP 客户端可以操作的目录
 2. 如果要从远程 MCP 客户端连接，在“连接”里按“公网地址 → 连接密码 → 检查连接”三步完成配置
 3. 回到“概览”，在“启动模式”中选择“仅本机”或“公网接入”，再启动服务；默认选择遵循已保存偏好
-4. Codex / Claude / Skills、诊断、日志和更新统一放在“系统”里
+4. ChatGPT / Gemini / Skills、诊断、日志和更新统一放在“系统”里
 
 概览会按“选择项目 → 启动服务 → 获取连接地址”显示当前进度，服务运行后可以直接复制当前 MCP 地址。项目列表支持按名称、路径搜索和按登记状态筛选；筛选不会修改登记或会话绑定。
 
@@ -190,8 +191,9 @@ aimcp auth
 
 核心公网连接和连接密码完成后，setup 还会检测当前环境是否存在：
 
-- Codex
-- Claude Code
+- ChatGPT（Codex CLI 本机能力）
+- Gemini CLI
+- Claude Code（旧配置兼容）
 - Agent Skills
 
 你可以选择：
@@ -270,6 +272,17 @@ https://aimcp.example.com/mcp
 
 > 完整 MCP 写入能力是否可用取决于 ChatGPT 当前的套餐、工作区权限和产品开放状态。如果你的设置里没有 Developer Mode 或创建自定义 MCP App 的入口，请先确认当前 ChatGPT 账号是否支持。
 
+### Codex CLI 本机连接（可选）
+
+先在项目目录执行 `aimcp start --local`，然后注册 HTTP MCP 地址：
+
+```bash
+codex mcp add aimcp --url http://127.0.0.1:3920/mcp
+codex mcp list
+```
+
+重启 Codex CLI 会话后使用工具。Codex CLI 与 IDE 扩展共享 MCP 配置；配置保存在 `~/.codex/config.toml`。如果 Runtime 端口不同，请使用控制台显示的本机 MCP 地址。使用公网地址时需以公网模式启动并完成客户端 OAuth 授权。参考 [Codex 官方 MCP 配置示例](https://developers.openai.com/learn/docs-mcp)。
+
 ## 5. 连接 Gemini CLI
 
 Gemini CLI 支持通过 HTTP 连接 MCP 服务。
@@ -277,7 +290,7 @@ Gemini CLI 支持通过 HTTP 连接 MCP 服务。
 在项目目录中启动本机服务：
 
 ```bash
-npm run start:local
+aimcp start --local
 ```
 
 然后把本机 MCP 服务注册到 Gemini CLI 的用户配置：
@@ -435,7 +448,7 @@ MCP 不能自动读取客户端整个聊天窗口。聊天内容需要客户端�
 
 每批最多 20 条消息、48 KB，每条内容最多 16000 字符；较长内容需分段使用不同编号。相同编号与内容的重试不会重复保存，相同编号的不同内容会被拒绝。每个会话最多保存 8 MB / 10000 条，达到上限会明确报错，不会静默丢弃。GPT 与 Gemini 必须分别选择项目并使用各自句柄，不得跨客户端或聊天复用。
 
-消息保存在 `~/.codex-mcp/conversations/<会话编号>.json`（文件权限 0600），包含客户端提供的完整文本。记录属于本机私有数据，不在项目目录内，不随 npm 包发布。解除绑定、停用或移除项目后历史仍可查看，历史记录不能恢复项目访问权限。旧绑定无法可靠识别 Gemini 时显示“未识别客户端”，需客户端在 select / record 明确传入 client。
+消息保存在 `~/.ai-mcp/conversations/<会话编号>.json`（文件权限 0600），包含客户端提供的完整文本。记录属于本机私有数据，不在项目目录内，不随 npm 包发布。解除绑定、停用或移除项目后历史仍可查看，历史记录不能恢复项目访问权限。旧绑定无法可靠识别 Gemini 时显示“未识别客户端”，需客户端在 select / record 明确传入 client。
 
 可在 Web Console → 项目 → 本地会话记录中切换“保存会话记录到本地”。未配置时默认关闭；只有明确开启后才新增保存，已明确设置的开关保持原值。关闭后停止新增使用历史与客户端上传的聊天内容，已有记录仍可查看、删除；项目绑定正常工作。设置持久化为 `saveConversations`，运行中的新版 MCP 无需重启即可读取，重新开启不会补录关闭期间的聊天。
 
@@ -574,7 +587,7 @@ aimcp project add /path/to/other-project
 
 ---
 
-# 使用 Codex、Claude Code 和 Skills
+# 使用 ChatGPT、Gemini 的本机能力与 Skills
 
 aimcp 可以直接读取已有 AI 开发工具的配置，而不是复制一份。
 
@@ -582,21 +595,28 @@ aimcp 可以直接读取已有 AI 开发工具的配置，而不是复制一份�
 
 | 来源 | MCP | Skills |
 |---|---:|---:|
-| Codex | ✅ | ✅ |
-| Claude Code | ✅ | ✅ |
+| ChatGPT（Codex CLI） | ✅ | ✅ |
+| Gemini CLI | ✅ | ✅ |
+| Claude Code（兼容） | ✅ | ✅ |
 | Agent Skills | — | ✅ |
 
 常见位置包括：
 
 ```text
 ~/.codex/
-~/.claude/
+~/.gemini/settings.json
+~/.gemini/skills/
 ~/.agents/skills/
+~/.claude/  # 兼容旧配置
 ```
 
-Claude Code 项目内的 `.claude/skills` 也可以按项目读取。
+Gemini CLI 项目内的 `.gemini/settings.json`、`.gemini/skills` 按已选择的项目读取，项目同名配置优先于用户配置。也保留 Claude Code 的 `.mcp.json`、`.claude/skills` 兼容。
 
-这些能力默认只是**读取和引用原配置**，不会把第三方 Token、MCP 配置和 Skill 文件复制到 `~/.codex-mcp`。
+在控制台“系统 → 外部工具与技能”开启 Gemini CLI，勾选“透传 MCP 工具”或“读取 Skills 技能包”并保存后生效；升级不会自动开启新来源。遵守 `mcp.allowed`、`mcp.excluded`、持久化 MCP 停用记录、`skills.enabled`、`skills.disabled` 以及系统设置中的 MCP / Skills 开关。Gemini 的 CLI 内置与扩展技能、会话临时停用、独立策略文件和 `.agents/skills` 别名不在 Gemini 来源导入范围内；检测到独立策略路径时停止导入 MCP 服务；共享 Agent Skills 来源有独立开关。
+
+支持 stdio 与 Streamable HTTP（`httpUrl` 或 `type: "http"` + `url`）。SSE、Gemini 托管 OAuth / Google 身份认证、工具过滤等无法安全重现的服务会跳过并显示诊断提示；不会读取 Gemini 登录令牌。配置变化支持自动同步。格式参考 [Gemini MCP](https://geminicli.com/docs/tools/mcp-server/) 和 [Gemini Skills](https://geminicli.com/docs/cli/using-agent-skills/) 官方文档。
+
+这些能力默认只是**读取和引用原配置**，不会把第三方 Token、MCP 配置和 Skill 文件复制到 `~/.ai-mcp`。
 
 重新管理这些设置：
 
@@ -639,7 +659,7 @@ aimcp setup
 | `aimcp logs -f` | 持续跟随运行日志 |
 | `aimcp setup` | 首次设置或管理现有配置 |
 | `aimcp doctor` | 只读检查安装、配置和依赖 |
-| `aimcp doctor --fix` | 恢复缺失的文件搜索组件、创建本机目录、清理失效 daemon 状态等安全修复 |
+| `aimcp doctor --fix` | 恢复缺失组件、创建本机目录、清理失效状态、重连中断的本机托管隧道 |
 | `aimcp auth` | 修改远程 MCP 连接密码 |
 | `aimcp update` | 更新到最新版本 |
 | `aimcp start --root <目录>` | 注册指定目录，而不是当前目录 |
@@ -668,7 +688,7 @@ aimcp setup
 - 修改公网连接
 - 重新登录 / 切换 Cloudflare 账号
 - 修改连接密码
-- 管理 Codex / Claude Code / Agent Skills
+- 管理 ChatGPT / Gemini / Agent Skills（保留 Claude 兼容）
 - 退出，不做修改
 
 “检查当前配置”会真实验证公网地址是否能够连接回当前电脑，而不只是检查配置文件是否存在。
@@ -685,18 +705,18 @@ aimcp 的用户数据默认保存在：
 目录名沿用旧版，以便现有项目、连接密码和 Tunnel 配置在升级后继续使用。
 
 ```text
-~/.codex-mcp/
+~/.ai-mcp/
 ```
 
 主要文件包括：
 
 ```text
-~/.codex-mcp/config.json
-~/.codex-mcp/controller.json
-~/.codex-mcp/daemon.json
-~/.codex-mcp/projects.json
-~/.codex-mcp/session-bindings.json
-~/.codex-mcp/logs/
+~/.ai-mcp/config.json
+~/.ai-mcp/controller.json
+~/.ai-mcp/daemon.json
+~/.ai-mcp/projects.json
+~/.ai-mcp/session-bindings.json
+~/.ai-mcp/logs/
 ```
 
 其中：
@@ -716,7 +736,7 @@ Cloudflare 的登录和 Tunnel 凭据由 aimcp 放在自己的配置目录中管
 运行日志位于：
 
 ```text
-~/.codex-mcp/logs/
+~/.ai-mcp/logs/
 ```
 
 结构化日志文件类似：
@@ -728,7 +748,7 @@ codex-mcp.2026-08-12.0.jsonl
 Cloudflare Tunnel 原始日志：
 
 ```text
-~/.codex-mcp/logs/tunnel.log
+~/.ai-mcp/logs/tunnel.log
 ```
 
 正常的工具日志不会记录：
@@ -765,6 +785,13 @@ aimcp doctor
 - Tunnel 凭据
 - Tunnel 配置文件
 - 外部能力设置
+- 项目登记、目录可读性和失效会话绑定
+- 当前运行版本与已安装版本是否一致
+- 真实 MCP 工具调用和项目列表读取
+- Cloudflare 远端 Tunnel / DNS 与已保存配置是否一致
+- 本机隧道连接状态、自动恢复次数、公网实例与 OAuth 发现入口
+
+检查会汇总错误与提示，并给出下一步建议；Web Console 的“系统”页面可以只查看问题。单个状态文件损坏不会中断其他诊断，读取失败的文件也不会被自动清空。本机模式不会把未启用的公网配置误报为当前运行故障。
 
 这是排查问题时最先应该运行的命令。
 
@@ -775,6 +802,16 @@ aimcp doctor --fix
 ```
 
 它会下载项目固定版本的受管 ripgrep，校验 SHA-256，并在安装后重新验证版本；不需要重新执行整套安装脚本。
+
+已配置 Cloudflare 时，`--fix` 也会恢复缺失的受管 cloudflared。若当前公网服务的托管隧道中断，会校验已提交配置后，仅重启属于当前 Runtime 的本机隧道进程。MCP 服务、项目会话与已保存的连接配置保留，不改 DNS、不创建 Tunnel；已停止的服务不会因此启动。缺少或不匹配的凭据仍需人工处理。
+
+### Cloudflare 偶尔断开
+
+正常运行时，aimcp 持续跟踪连接事件，并每 15 秒检查 cloudflared 的本机 `/ready`。短暂中断优先等待 cloudflared 自行恢复；连接全部中断超过 3 分钟时，会重启本机隧道进程。进程意外退出同样会触发恢复。连续失败按退避与冷却周期继续重试，稳定连接 5 分钟后重置连续失败计数；停止服务会取消监测与重试。
+
+健康端口只绑定 `127.0.0.1` 的随机端口。自动恢复复用原 Tunnel ID、凭据与配置，通常不需要再次登录或运行 setup。网络必须允许 Cloudflare 的 UDP / TCP 7844；网络限制、远端资源删除或凭据损坏需要按 doctor 的具体提示处理。候选配置验证仍使用有界启动与清理，不会无限重试。
+
+升级后运行 `aimcp restart`，新恢复机制才会用于正在运行的服务。
 
 ---
 
@@ -807,7 +844,7 @@ aimcp doctor
 再查看：
 
 ```text
-~/.codex-mcp/logs/
+~/.ai-mcp/logs/
 ```
 
 ---
@@ -861,7 +898,7 @@ aimcp 会检查本机 Tunnel 凭据和 Cloudflare 上的 Tunnel 是否匹配。
 查看：
 
 ```text
-~/.codex-mcp/logs/tunnel.log
+~/.ai-mcp/logs/tunnel.log
 ```
 
 某些网络或防火墙会阻止 Cloudflare Tunnel 使用的 TCP 7844 连接。
@@ -916,23 +953,27 @@ aimcp stop
 
 # 更新
 
-## 1.0 干净基线
+## 保存目录迁移
 
-1.0 是一次 breaking release，不读取旧版命令、旧版配置字段或旧 OAuth 状态。升级前请用已安装的旧版 CLI 停止服务，备份 `~/.codex-mcp`，再移走其中的 `config.json`、`oauth-state.json`、`daemon.json`、`projects.json` 和 `session-bindings.json`，然后重新运行：
+默认保存目录统一为 `~/.ai-mcp`（用户主目录下的隐藏目录）。升级前运行：
 
 ```bash
-aimcp setup
+aimcp shutdown
+npm install -g @rookiedj/aimcp@latest
+aimcp open
 ```
 
-请保留托管组件、连接密码和 Cloudflare 凭据。重新 setup 会选择新的已提交配置；旧 OAuth 会话与项目绑定不会恢复，项目需要重新注册。不要删除整个 `~/.codex-mcp`，其中保存 aimcp 的本机配置和连接数据。
+新版 CLI 第一次正常运行时会将 `~/.codex-mcp` 的私有数据复制到 `~/.ai-mcp`，保留原目录作为备份。项目登记、绑定、聊天记录、密码、OAuth 身份、Cloudflare 凭据均保留；自动修正托管 cloudflared 路径与 Tunnel YAML 的凭据路径，不重新创建 Tunnel 或修改 DNS。旧 npm 安装保留在旧目录，不复制到新保存目录。
 
-旧的 `tunnel`、`exit` 和 `serve --foreground` 入口已删除；分别使用 `setup`、`stop` / `project remove` 和后台 `start`。
+旧服务运行时迁移会暂停，新版 `aimcp shutdown` 也能通过验证过的本机控制接口关闭旧服务。新旧目录都已有独立数据时拒绝覆盖；软链接、未知进程状态和无效配置会阻止迁移，需先检查并备份。迁移锁发生异常遗留时，确认没有迁移进程后再处理 `~/.ai-mcp-migration.lock`。迁移失败保留旧数据；迁移本身不启动 Runtime，`open` 只打开控制台。
+
+此次目录迁移不转换早于 1.0 的废弃配置结构。遇到不支持的字段时按诊断提示处理，先备份，勿直接删除身份或凭据文件。
+
+之后可正常运行：
 
 ```bash
 aimcp update
 ```
-
-1.0 之后的常规更新会保留配置和连接密码；从旧版首次升级仍须完成上面的基线重置。
 
 更新后运行：
 
@@ -957,7 +998,7 @@ npm unlink -g @rookiedj/aimcp
 如果你确定不再使用，并希望彻底删除所有状态，可以再手动删除：
 
 ```text
-~/.codex-mcp
+~/.ai-mcp
 ```
 
 ---

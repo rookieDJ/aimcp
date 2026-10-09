@@ -26,8 +26,8 @@ export function controllerPanelUrl(state: Pick<ControllerState, "host" | "port">
     return `http://${loopbackHost(state.host)}:${state.port}/`;
 }
 
-export function loadControllerState(): ControllerState | undefined {
-    const path = getControllerStatePath();
+export function loadControllerState(directory = getUserConfigDir()): ControllerState | undefined {
+    const path = join(directory, "controller.json");
     if (!existsSync(path)) return undefined;
     try {
         const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;

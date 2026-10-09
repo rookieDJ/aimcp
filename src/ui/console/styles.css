@@ -141,13 +141,13 @@ code { font-size: 12px; }
 .particle-ambient-glow { position: absolute; inset: -30% -10% 15% 10%; background: radial-gradient(ellipse at 70% 20%, color-mix(in srgb, var(--accent-green) 8%, transparent), transparent 58%), radial-gradient(ellipse at 25% 60%, color-mix(in srgb, var(--accent-cyan) 5%, transparent), transparent 52%); }
 .particle-static-stars { position: absolute; left: 0; top: 0; width: 2px; height: 2px; border-radius: 50%; background: var(--accent-green); opacity: .32; box-shadow: 8vw 18vh var(--accent-green), 22vw 39vh var(--accent-cyan), 31vw 11vh var(--text-primary), 47vw 16vh var(--accent-green), 68vw 23vh var(--accent-cyan), 87vw 15vh var(--text-primary), 92vw 40vh var(--accent-green), 76vw 58vh var(--accent-cyan), 52vw 74vh var(--accent-green), 15vw 84vh var(--text-primary), 38vw 94vh var(--accent-cyan), 98vw 82vh var(--accent-green); }
 .aimcp-console .particle-toggle.is-active { border-color: var(--el-color-primary-light-7); color: var(--color-primary); background: var(--color-primary-soft); }
-.console-topbar { position: fixed; z-index: 30; inset: 0 0 auto; height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 32px; background: var(--bg-page); border-bottom: 1px solid var(--border-subtle); }
+.console-topbar { position: fixed; z-index: 30; inset: 0 0 auto; height: 60px; display: flex; align-items: center; justify-content: flex-start; gap: 16px; padding: 0 32px; background: var(--bg-page); border-bottom: 1px solid var(--border-subtle); }
 .console-brand { display: flex; align-items: center; gap: 18px; white-space: nowrap; }
 .console-brand-text { font-size: 24px; font-weight: 800; letter-spacing: -1px; }
 .brand-period { color: var(--color-primary); }
 .topbar-slash { color: #4d5347; font-size: 24px; }
 .console-brand-caption { color: var(--text-secondary); border: 1px solid var(--border-base); border-radius: 6px; padding: 2px 8px; font-size: 11px; }
-.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .aimcp-console .topbar-icon-btn { margin-left: 0; width: 36px; height: 36px; padding: 0; border-radius: 10px; }
 .runtime-status-pill { display: flex; align-items: center; gap: 8px; font-size: 12px; border: 1px solid var(--border-subtle); padding: 7px 12px; border-radius: 9px; color: var(--text-secondary); }
 .status-pulse-dot, .status-dot, .badge-dot, .sidebar-health-light, .readiness-dot, .metric-indicator { display: inline-block; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-placeholder); }
@@ -325,6 +325,7 @@ code { font-size: 12px; }
 .aimcp-console .maintenance-tabs .el-tabs__item { font-size: 13px; height: 44px; font-weight: 500; }
 .tab-pane-content { min-width: 0; }
 .doctor-results-grid { display: grid; gap: 10px; }
+.doctor-summary { flex-wrap: wrap; margin: 16px 0; }
 .doctor-idle-placeholder { display: grid; place-items: center; gap: 14px; text-align: center; min-height: 270px; padding: 40px; border: 1px solid var(--border-light); border-radius: 12px; background: var(--bg-fill-light); }
 .idle-icon-wrap { display: grid; place-items: center; border: 1px solid var(--border-base); width: 48px; height: 48px; border-radius: 12px; color: var(--color-primary); font-size: 22px; }
 .idle-text { color: var(--text-secondary); font-size: 12px; }
@@ -433,7 +434,7 @@ code { font-size: 12px; }
     .console-sidebar { display: none; }
     .console-main, .is-sidebar-collapsed .console-main { margin-left: 0; }
     .console-content { padding: 24px; }
-    .aimcp-console .console-mobile-nav { display: inline-flex; width: 110px; }
+    .aimcp-console .console-mobile-nav { display: inline-block; width: 110px; flex: none; }
     .console-brand-caption, .topbar-slash { display: none; }
     .console-topbar { padding: 0 24px; }
     .page-heading { flex-wrap: wrap; margin-bottom: 24px; }

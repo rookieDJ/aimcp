@@ -57,7 +57,7 @@ if ($nodeMajor -lt 22) {
     Fail "当前 Node.js 版本是 $(& node -v)，需要 22 或更高版本。"
 }
 
-$installRoot = Join-Path $env:USERPROFILE ".codex-mcp\npm"
+$installRoot = Join-Path $env:USERPROFILE ".ai-mcp\npm"
 New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
 
 if ($Update -eq "1") {

@@ -71,8 +71,8 @@ function bindingsStatePath(): string {
     return join(getUserConfigDir(), "session-bindings.json");
 }
 
-export function loadDaemonState(): DaemonState | undefined {
-    const path = daemonStatePath();
+export function loadDaemonState(directory = getUserConfigDir()): DaemonState | undefined {
+    const path = join(directory, "daemon.json");
     if (!existsSync(path)) return undefined;
     try {
         const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;

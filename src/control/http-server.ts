@@ -321,7 +321,7 @@ export function createControllerHttpServer(options: ControllerHttpServerOptions)
             ok: true,
             operation: operations.start(fix ? "doctor-fix" : "doctor", async (context) => {
                 context.phase(fix ? "执行安全本机修复" : "运行诊断");
-                return await runDoctorService(fix);
+                return await runDoctorService(fix, { signal: context.signal, onPhase: context.phase });
             }),
         });
     });

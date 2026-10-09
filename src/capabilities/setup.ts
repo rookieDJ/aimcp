@@ -12,7 +12,7 @@ import {
 import { printInfo, printSummary } from "../lib/util/terminal.js";
 import { askSelect } from "../tunnel/prompt.js";
 
-const SOURCE_PRIORITY: CapabilitySourceId[] = ["agents", "codex", "claude"];
+const SOURCE_PRIORITY: CapabilitySourceId[] = ["agents", "codex", "gemini", "claude"];
 
 export interface CapabilitySetupResult {
     detections: CapabilitySourceDetection[];
@@ -39,7 +39,7 @@ export async function configureCapabilitySources(
     );
 
     if (detected.length === 0) {
-        printInfo("没有检测到 Codex、Claude Code 或 Agent Skills；保持默认设置，不写入额外配置。");
+        printInfo("没有检测到 ChatGPT（Codex CLI）、Gemini CLI、Claude Code（兼容）或 Agent Skills；保持默认设置，不写入额外配置。");
         return { detections, changed: false };
     }
 
@@ -173,6 +173,7 @@ function describeDetection(item: CapabilitySourceDetection): string {
 
 function sourceLabel(source: CapabilitySourceId): string {
     if (source === "agents") return "Agent Skills";
+    if (source === "gemini") return "Gemini CLI";
     if (source === "claude") return "Claude Code";
-    return "Codex";
+    return "ChatGPT（Codex CLI）";
 }

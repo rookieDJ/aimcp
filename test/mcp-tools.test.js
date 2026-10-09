@@ -33,8 +33,8 @@ test("all 15 MCP tools execute over HTTP; sessions, files, processes and capabil
     }
     await sharp({ create: { width: 2, height: 2, channels: 4, background: "#123456" } }).png().toFile(join(projects[0], "sample.png"));
     writeFileSync(join(projects[0], "interactive.cjs"), "process.stdout.write('READY\\n'); process.stdin.on('data', chunk => { process.stdout.write('REPLY:'+chunk); process.exit(0); });");
-    mkdirSync(join(home, ".codex-mcp"), { recursive: true });
-    writeFileSync(join(home, ".codex-mcp", "config.json"), JSON.stringify({ capabilities: { sync: "startup", sources: { codex: { enabled: false }, agents: { enabled: false }, claude: { enabled: true } } } }));
+    mkdirSync(join(home, ".ai-mcp"), { recursive: true });
+    writeFileSync(join(home, ".ai-mcp", "config.json"), JSON.stringify({ capabilities: { sync: "startup", sources: { codex: { enabled: false }, agents: { enabled: false }, claude: { enabled: true } } } }));
     const registry = new ProjectRegistry({ projects: [], save: async () => {} });
     const registered = await Promise.all(projects.map(path => registry.register({ path })));
     const bindings = new BindingStore({ bindings: [], save: async () => {} });

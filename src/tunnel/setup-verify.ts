@@ -90,7 +90,7 @@ export async function verifyRunningPublicRoute(
     domain: string,
     host: string,
     port: number,
-    options: { totalTimeoutMs?: number } = {},
+    options: { totalTimeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<SetupPublicVerificationResult> {
     const totalTimeoutMs = options.totalTimeoutMs ?? 120_000;
     if (!Number.isSafeInteger(totalTimeoutMs) || totalTimeoutMs < 1_000) {
@@ -99,8 +99,8 @@ export async function verifyRunningPublicRoute(
     const localHealthUrl = `http://${formatHost(localServiceHost(host))}:${port}/healthz`;
     const publicHealthUrl = `https://${domain}/healthz`;
     const [localHealth, publicHealth] = await Promise.all([
-        readHealthInstance(localHealthUrl, true, totalTimeoutMs),
-        readHealthInstance(publicHealthUrl, false, totalTimeoutMs),
+        readHealthInstance(localHealthUrl, true, totalTimeoutMs, options.signal),
+        readHealthInstance(publicHealthUrl, false, totalTimeoutMs, options.signal),
     ]);
     if (localHealth !== publicHealth) {
         throw new Error(
@@ -156,12 +156,14 @@ async function readHealthInstance(
     url: string,
     allowPrivate: boolean,
     timeoutMs: number,
+    signal?: AbortSignal,
 ): Promise<string> {
     const response = await safeHttpGet(url, {
         allowPrivate,
         httpsOnly: !allowPrivate,
         maxBytes: 4 * 1024,
         timeoutMs,
+        signal,
         maxRedirects: 0,
         headers: { Accept: "application/json" },
     });

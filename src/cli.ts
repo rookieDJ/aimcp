@@ -62,6 +62,9 @@ import { runBindingsCommand, runProjectCommand } from "./cli/project-commands.js
 import { runControllerProcess } from "./control/process.js";
 import { runDoctorService, selfUpdate } from "./control/services.js";
 
+import { stopLegacyInstallation } from "./config/storage-lifecycle.js";
+import { migrateLegacyUserData } from "./config/storage-migration.js";
+
 /** Print CLI usage. */
 function printUsage(): void {
     printIntro("aimcp");
@@ -116,6 +119,15 @@ async function main(argv: string[]): Promise<void> {
     if (flags.command === "version") {
         console.log(getPackageVersion());
         return;
+    }
+
+    if (await stopLegacyInstallation(flags.command)) {
+        printInfo(flags.command === "stop" ? "旧版 Runtime 已停止，控制台保持在线；迁移前请运行 aimcp shutdown。" : "旧版服务已完全关闭；下次运行将迁移保存目录。");
+        return;
+    }
+
+    if (flags.command !== "daemon" && flags.command !== "controller") {
+        if (migrateLegacyUserData() && !flags.json) printInfo("已迁移保存目录到 ~/.ai-mcp；旧目录保留为备份。");
     }
 
     if (flags.command === "doctor") {
@@ -335,6 +347,10 @@ async function startServices(options: StartServicesOptions): Promise<StartedServ
                       controlToken: options.daemon.controlToken,
                       runtimeIntent: options.daemon.runtimeIntent,
                       tunnelStatus: options.tunnelStatus,
+                      onRecoverTunnel: async () => {
+                          if (!sidecar || signal.aborted) throw new Error("当前没有可恢复的托管隧道");
+                          await sidecar.restart();
+                      },
                       onShutdown: options.daemon.onShutdown,
                   },
               }
@@ -368,6 +384,7 @@ async function startServices(options: StartServicesOptions): Promise<StartedServ
                 configPath: tunnelSetup.configPath,
                 mirrorLogs: flags.tunnelLogs,
                 maxRestarts: options.daemon ? 3 : 0,
+                autoRecover: Boolean(options.daemon),
                 onStateChange: options.onTunnelStatus,
             });
             tunnelReady = await sidecar.start();
@@ -565,7 +582,7 @@ async function printDoctorReport(fix: boolean): Promise<void> {
 
     const report = result.report;
     for (const check of report.checks) {
-        printDoctorMessage(check.level, `${check.label}：${check.detail}`);
+        printDoctorMessage(check.level, `${check.label}：${check.detail}${check.hint ? `\n  建议：${check.hint}` : ""}`);
     }
 
     if (report.errors > 0) {

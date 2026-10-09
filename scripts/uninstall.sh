@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-INSTALL_ROOT="${HOME}/.codex-mcp/npm"
-MANAGED_BIN="${HOME}/.codex-mcp/bin"
+INSTALL_ROOT="${HOME}/.ai-mcp/npm"
+MANAGED_BIN="${HOME}/.ai-mcp/bin"
 
 status() {
   marker="$1"
@@ -35,7 +35,7 @@ remove_path_line() {
   [ -f "$profile" ] || return 0
   tmp="${profile}.aimcp.tmp.$$"
   cp -p "$profile" "$tmp"
-  awk '$0 != "# aimcp" && $0 != "# codex-mcp" && $0 != "export PATH=\"$HOME/.codex-mcp/npm/bin:$PATH\""' "$profile" > "$tmp"
+  awk '$0 != "# aimcp" && $0 != "# codex-mcp" && $0 != "export PATH=\"$HOME/.ai-mcp/npm/bin:$PATH\"" && $0 != "export PATH=\"$HOME/.codex-mcp/npm/bin:$PATH\""' "$profile" > "$tmp"
   mv "$tmp" "$profile"
 }
 
@@ -46,5 +46,5 @@ remove_path_line "${HOME}/.profile"
 
 success "aimcp 程序已删除。"
 printf '%s\n' ""
-info "你的配置、连接密码和 Tunnel 信息仍保留在：${HOME}/.codex-mcp"
+info "你的配置、连接密码和 Tunnel 信息仍保留在：${HOME}/.ai-mcp"
 info "以后重新安装 aimcp 时可以继续使用这些配置。"

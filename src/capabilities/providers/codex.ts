@@ -6,7 +6,7 @@ import type { CapabilityProvider } from "../provider.js";
 
 export const codexCapabilityProvider: CapabilityProvider = {
     id: "codex",
-    label: "Codex",
+    label: "ChatGPT（Codex CLI）",
     supportsMcp: true,
     supportsSkills: true,
     async detect(context) {
@@ -15,7 +15,7 @@ export const codexCapabilityProvider: CapabilityProvider = {
         if (!context.includeUserScope) {
             return {
                 source: "codex",
-                label: "Codex",
+                label: "ChatGPT（Codex CLI）",
                 detected: false,
                 mcp: false,
                 skills: false,
@@ -34,7 +34,7 @@ export const codexCapabilityProvider: CapabilityProvider = {
         }
         return {
             source: "codex",
-            label: "Codex",
+            label: "ChatGPT（Codex CLI）",
             detected: command || skills,
             mcp: command,
             skills,

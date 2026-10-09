@@ -4,7 +4,10 @@ import type { ManagedToolName } from "./paths.js";
 import { printError } from "../lib/util/terminal.js";
 import { loadUserConfig } from "../config/user-config.js";
 
+import { migrateLegacyUserData } from "../config/storage-migration.js";
+
 async function main(argv: string[]): Promise<void> {
+    migrateLegacyUserData();
     const command = argv[0] ?? "bootstrap";
     let tools: ManagedToolName[];
 

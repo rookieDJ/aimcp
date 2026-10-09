@@ -3,8 +3,8 @@
     "displayName": "aimcp",
     "author": "rookieDJ",
     "preferGlobal": true,
-    "version": "1.2.2",
-    "description": "Local coding MCP server for ChatGPT, Gemini Apps, Gemini CLI, and other MCP clients with OAuth and Streamable HTTP.",
+    "version": "1.2.3",
+    "description": "Local coding MCP server for ChatGPT, Gemini Apps, Gemini CLI, Codex CLI, and other MCP clients with OAuth and Streamable HTTP.",
     "type": "module",
     "main": "dist/cli.js",
     "files": [
@@ -43,6 +43,7 @@
     },
     "keywords": [
         "mcp",
+        "codex",
         "chatgpt",
         "gemini-cli",
         "coding"
@@ -71,6 +72,7 @@
         "http-proxy-agent": "^9.1.0",
         "https-proxy-agent": "^9.1.0",
         "jose": "^6.2.8",
+        "jsonc-parser": "^3.3.1",
         "minimatch": "^10.2.6",
         "pino": "^10.3.1",
         "pino-roll": "^4.0.0",

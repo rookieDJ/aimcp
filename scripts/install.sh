@@ -3,7 +3,7 @@ set -eu
 
 PACKAGE="${AIMCP_PACKAGE:-${CODEX_MCP_PACKAGE:-https://github.com/rookieDJ/aimcp/releases/latest/download/aimcp.tgz}}"
 UPDATE="${AIMCP_UPDATE:-${CODEX_MCP_UPDATE:-}}"
-INSTALL_ROOT="${HOME}/.codex-mcp/npm"
+INSTALL_ROOT="${HOME}/.ai-mcp/npm"
 BIN_DIR="${INSTALL_ROOT}/bin"
 
 say() {
@@ -66,8 +66,8 @@ success "必要组件已准备"
 
 add_path_line() {
   profile="$1"
-  line='export PATH="$HOME/.codex-mcp/npm/bin:$PATH"'
-  if [ -f "$profile" ] && grep -F '.codex-mcp/npm/bin' "$profile" >/dev/null 2>&1; then
+  line='export PATH="$HOME/.ai-mcp/npm/bin:$PATH"'
+  if [ -f "$profile" ] && grep -F '.ai-mcp/npm/bin' "$profile" >/dev/null 2>&1; then
     return
   fi
   printf '\n# aimcp\n%s\n' "$line" >> "$profile"

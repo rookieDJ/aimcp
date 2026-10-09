@@ -9,7 +9,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const MAX_SKILL_FILE_CHARS = 80_000;
 
-export type SkillSource = "agents" | "codex" | "claude";
+export type SkillSource = "agents" | "codex" | "gemini" | "claude";
 export type SkillScope = "user" | "project";
 
 export interface SkillInfo {
@@ -40,6 +40,7 @@ export interface SkillRoot {
     namePrefix?: string;
     /** Respect Claude's disable-model-invocation frontmatter by hiding such skills. */
     respectModelInvocation?: boolean;
+    disabledNames?: string[];
 }
 
 export class SkillRegistry {
@@ -202,6 +203,7 @@ export class SkillRegistry {
         }
 
         const metadata = parseSkillMetadata(contents, directoryName);
+        if (root.disabledNames?.includes(metadata.name)) return;
         if (root.source === "claude") {
             if (root.scope === "project" && this.claudeUserSkillNames.has(metadata.name)) return;
             if (root.scope === "user") this.claudeUserSkillNames.add(metadata.name);

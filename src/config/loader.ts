@@ -30,7 +30,7 @@ export interface ServerConfig {
 export interface LoadConfigOptions {
     /** Override project root (CLI `--root`); defaults to `process.cwd()`. */
     projectRoot?: string;
-    /** Values from the existing `~/.codex-mcp/config.json` compatibility path. */
+    /** Values from the existing `~/.ai-mcp/config.json` compatibility path. */
     userConfig?: UserConfig;
     /**
      * When true, do not require a public domain / allowed hosts

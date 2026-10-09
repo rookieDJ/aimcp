@@ -54,7 +54,7 @@ async function save(): Promise<void> {
 }
 
 function detected(id: string): boolean {
-    return props.setup?.detections.some((item) => item.label.toLowerCase().includes(id === "agents" ? "agent" : id)) ?? false;
+    return props.setup?.detections.some((item) => item.detected && item.label.toLowerCase().includes(id === "agents" ? "agent" : id)) ?? false;
 }
 </script>
 
@@ -68,7 +68,7 @@ function detected(id: string): boolean {
                         有未保存修改
                     </el-tag>
                 </div>
-                <p>实时读取本机已有的 Codex、Claude Code 以及 Agent Skills 配置文件，无需重复拷贝。</p>
+                <p>读取 ChatGPT（Codex CLI）、Gemini CLI 和 Agent Skills 的本机配置，同时兼容旧 Claude Code 配置。</p>
             </div>
             <div class="inline-actions">
                 <el-button v-if="dirty" text :disabled="busy" @click="resetDraft">放弃修改</el-button>
@@ -97,17 +97,17 @@ function detected(id: string): boolean {
 
             <!-- Provider Sources Bento Grid -->
             <div class="capabilities-grid">
-                <div v-for="id in ['agents', 'codex', 'claude']" :key="id" class="capability-card capability-card--source">
+                <div v-for="id in ['codex', 'gemini', 'agents', 'claude']" :key="id" class="capability-card capability-card--source">
                     <div class="capability-card-inner">
                         <div class="capability-card-left">
                             <div class="capability-card-title">
-                                <strong>{{ id === 'agents' ? 'Agent Skills' : id === 'codex' ? 'Codex' : 'Claude Code' }}</strong>
+                                <strong>{{ id === 'agents' ? 'Agent Skills' : id === 'codex' ? 'ChatGPT（Codex CLI）' : id === 'gemini' ? 'Gemini CLI' : 'Claude Code（兼容）' }}</strong>
                                 <el-tag v-if="detected(id)" size="small" effect="light" type="success" class="detected-tag">
                                     ✓ 已在电脑中检测到
                                 </el-tag>
                             </div>
                             <div class="capability-desc muted small">
-                                允许 aimcp 读取 {{ id === 'agents' ? '~/.agents/skills' : id === 'codex' ? '~/.codex' : '~/.claude' }} 的能力。
+                                允许 aimcp 读取 {{ id === 'agents' ? '~/.agents/skills' : id === 'codex' ? '~/.codex' : id === 'gemini' ? '~/.gemini' : '~/.claude' }} 的能力。
                             </div>
                         </div>
                         <el-switch :model-value="capabilities.sources[id]?.enabled ?? false" @change="updateSource(id, 'enabled', Boolean($event))" />
@@ -127,6 +127,7 @@ function detected(id: string): boolean {
                         >
                             读取 Skills 技能包
                         </el-checkbox>
+                        <p v-if="!capabilities.sources[id]?.mcp && !capabilities.sources[id]?.skills" class="muted small">请选择需要读取的 MCP 工具或 Skills；仅打开来源开关不会导入能力。</p>
                     </div>
                 </div>
             </div>

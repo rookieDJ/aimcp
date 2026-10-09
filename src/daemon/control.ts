@@ -104,6 +104,10 @@ export class DaemonControlClient {
         return await this.request("/daemon/check-tools", { method: "POST" }) as { toolCount: number; projectCount: number };
     }
 
+    async recoverTunnel(signal?: AbortSignal): Promise<void> {
+        await this.request("/daemon/tunnel/recover", { method: "POST", timeoutMs: 190_000, signal });
+    }
+
     async registerProject(input: { path: string; name?: string }): Promise<RegisteredProject> {
         const data = await this.request("/daemon/projects", {
             method: "POST",
@@ -153,10 +157,10 @@ export class DaemonControlClient {
 
     private async request(
         path: string,
-        options: { method?: string; body?: string } = {},
+        options: { method?: string; body?: string; timeoutMs?: number; signal?: AbortSignal } = {},
     ): Promise<unknown> {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+        const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? this.timeoutMs);
         try {
             const response = await fetch(`http://${loopbackHost(this.host)}:${this.port}${path}`, {
                 method: options.method ?? "GET",
@@ -165,7 +169,7 @@ export class DaemonControlClient {
                     ...(options.body ? { "content-type": "application/json" } : {}),
                 },
                 ...(options.body ? { body: options.body } : {}),
-                signal: controller.signal,
+                signal: options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal,
             });
             const payload = (await response.json()) as {
                 error?: string;
@@ -491,7 +495,7 @@ export async function waitForDaemonStart(
         const state = loadDaemonState();
         if (!isProcessAlive(pid)) {
             throw new Error(
-                "守护进程启动后立即退出了。请查看 ~/.codex-mcp/logs 下的日志文件了解原因。",
+                "守护进程启动后立即退出了。请查看 ~/.ai-mcp/logs 下的日志文件了解原因。",
             );
         }
         if (state) {
@@ -520,7 +524,7 @@ function daemonExitedError(
           ? `信号 ${result.signal}`
           : `退出代码 ${result.code ?? "unknown"}`;
     return new Error(
-        `守护进程启动后立即退出（${outcome}）。请查看 ~/.codex-mcp/logs 下的日志文件了解原因。`,
+        `守护进程启动后立即退出（${outcome}）。请查看 ~/.ai-mcp/logs 下的日志文件了解原因。`,
     );
 }
 

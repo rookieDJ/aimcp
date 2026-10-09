@@ -16,7 +16,7 @@ const { startDaemonForIntent } = await import("../dist/daemon/control.js");
 const { CloudflaredSidecar } = await import("../dist/tunnel/sidecar.js");
 const { runCloudflared } = await import("../dist/tunnel/exec.js");
 const { terminateChildProcess } = await import("../dist/lib/process/tree.js");
-const configDir = join(home, ".codex-mcp");
+const configDir = join(home, ".ai-mcp");
 mkdirSync(configDir, { recursive: true });
 writeFileSync(join(configDir, "config.json"), JSON.stringify({ port: 0, capabilities: { sources: { codex: { enabled: false }, agents: { enabled: false }, claude: { enabled: false } } } }));
 

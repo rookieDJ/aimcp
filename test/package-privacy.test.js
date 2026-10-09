@@ -9,7 +9,7 @@ import { checkPublishFiles, checkTarball, validatePackageEntry } from "../script
 import { create } from "tar";
 
 test("publish guard excludes local data, credentials, personal paths and symlinks without echoing secrets", () => {
-    for (const path of [".npmrc", ".env", ".codex-mcp/auth.json", "dist/conversations/chat.js", "dist/logs/a.js", "dist/settings.json", "dist/a.js.map", "dist/../private.js"]) {
+    for (const path of [".npmrc", ".env", ".codex-mcp/auth.json", ".ai-mcp/auth.json", "dist/conversations/chat.js", "dist/logs/a.js", "dist/settings.json", "dist/a.js.map", "dist/../private.js"]) {
         assert.throws(() => validatePackageEntry(path, "fixture"), /不允许的文件/);
     }
     const secret = "npm_" + "A".repeat(36);
@@ -25,8 +25,8 @@ test("actual npm tarball excludes planted private data in root, caches and build
     const scratch = mkdtempSync(join(tmpdir(), "aimcp-pack-privacy-"));
     try {
         writeFileSync(join(scratch, "package.json"), JSON.stringify({ name: "aimcp-privacy-fixture", version: "1.0.0", files: ["dist/**/*.js", "dist/**/*.css", "README.md"] }));
-        for (const dir of ["dist", ".codex", ".codex-mcp/conversations"]) mkdirSync(join(scratch, dir), { recursive: true });
-        for (const file of [".env", ".npmrc", ".codex/cache.json", ".codex-mcp/auth.json", ".codex-mcp/conversations/chat.json", "dist/config.json", "dist/chat.json", "dist/cli.js.map"]) writeFileSync(join(scratch, file), "PRIVATE_FIXTURE");
+        for (const dir of ["dist", ".codex", ".codex-mcp/conversations", ".ai-mcp/conversations"]) mkdirSync(join(scratch, dir), { recursive: true });
+        for (const file of [".env", ".npmrc", ".codex/cache.json", ".codex-mcp/auth.json", ".codex-mcp/conversations/chat.json", ".ai-mcp/auth.json", ".ai-mcp/conversations/chat.json", "dist/config.json", "dist/chat.json", "dist/cli.js.map"]) writeFileSync(join(scratch, file), "PRIVATE_FIXTURE");
         writeFileSync(join(scratch, "dist/cli.js"), "export const publicCode = true;");
         const npm = process.platform === "win32" ? "npm.cmd" : "npm";
         const packed = JSON.parse(execFileSync(npm, ["pack", "--json", "--ignore-scripts"], { cwd: scratch, encoding: "utf8", stdio: "pipe", shell: process.platform === "win32" }))[0];

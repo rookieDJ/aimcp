@@ -53,7 +53,7 @@ export interface CreateHttpServerOptions {
     skills?: SkillRegistry;
     /** External capability source manager used by reload/status tools. */
     capabilities?: CapabilityManager;
-    /** Optional static UI preferences; defaults to the existing ~/.codex-mcp/config.json path. */
+    /** Optional static UI preferences; defaults to the existing ~/.ai-mcp/config.json path. */
     uiPreferences?: UiPreferences;
     /** Optional per-client tool policy resolver; omitted means all tools. */
     allowedToolsResolver?: (clientId?: string) => ReadonlySet<string> | undefined;
@@ -70,6 +70,8 @@ export interface DaemonServerOptions {
     runtimeIntent: RuntimeIntent;
     /** Reports the observed Cloudflare sidecar lifecycle. */
     tunnelStatus: () => TunnelObservedStatus;
+    /** Restarts only the connector owned by this Runtime; no DNS/config mutation. */
+    onRecoverTunnel?: () => Promise<void>;
     /** Runs the daemon shutdown sequence (stop tunnel, close server, remove daemon state). */
     onShutdown: () => Promise<void>;
 }
@@ -632,6 +634,15 @@ function registerDaemonControlRoutes(
         } catch (error) {
             res.status(400).json({ error: errorMessage(error) });
         }
+    });
+
+    app.post("/daemon/tunnel/recover", async (_req, res) => {
+        if (daemon.runtimeIntent.local || daemon.runtimeIntent.noTunnel || !daemon.onRecoverTunnel) {
+            res.status(409).json({ error: "当前没有可恢复的托管隧道" });
+            return;
+        }
+        try { await daemon.onRecoverTunnel(); res.json({ ok: true }); }
+        catch { res.status(500).json({ error: "隧道恢复未完成，请运行 doctor 查看状态" }); }
     });
 
     app.post("/daemon/shutdown", (_req, res) => {

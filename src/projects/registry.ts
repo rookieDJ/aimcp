@@ -12,7 +12,7 @@ import { writeRuntimeLog } from "../lib/runtime-log.js";
 import { AsyncMutex } from "../lib/util/mutex.js";
 
 /**
- * In-memory registry backed by the existing `~/.codex-mcp/projects.json` compatibility path.
+ * In-memory registry backed by the existing `~/.ai-mcp/projects.json` compatibility path.
  *
  * New project ids are deterministic, while an already-registered canonical path
  * keeps its original id forever. Display-name/package-name changes are metadata

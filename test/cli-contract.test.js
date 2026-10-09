@@ -55,7 +55,7 @@ function request(url, options = {}) {
 
 async function shutdownIsolatedController(home) {
     try {
-        const state = JSON.parse(readFileSync(join(home, ".codex-mcp", "controller.json"), "utf8"));
+        const state = JSON.parse(readFileSync(join(home, ".ai-mcp", "controller.json"), "utf8"));
         await fetch(`http://127.0.0.1:${state.port}/api/controller/shutdown`, {
             method: "POST",
             headers: { "x-codex-controller-token": state.controlToken },
@@ -115,6 +115,9 @@ test("Web Console keeps Element Plus component-scoped imports and a focused info
     assert.match(stylesSource, /\.console-sidebar\s*\{[^}]*width:\s*240px/s);
     assert.match(stylesSource, /\.is-sidebar-collapsed \.console-sidebar\s*\{\s*width:\s*64px/s);
     assert.match(stylesSource, /\.console-topbar\s*\{[^}]*height:\s*60px/s);
+    assert.match(stylesSource, /\.console-topbar\s*\{[^}]*justify-content:\s*flex-start/s);
+    assert.match(stylesSource, /\.topbar-actions\s*\{[^}]*margin-left:\s*auto/s);
+    assert.match(stylesSource, /\.console-mobile-nav\s*\{[^}]*display:\s*inline-block;\s*width:\s*110px/s);
     assert.match(stylesSource, /\.console-content\s*\{[^}]*width:\s*100%/s);
     assert.match(stylesSource, /\.page-heading h1\s*\{[^}]*font-size:\s*56px/s);
     assert.doesNotMatch(stylesSource, /\.el-button--primary[^}]*linear-gradient/s);
@@ -127,6 +130,9 @@ test("Web Console keeps Element Plus component-scoped imports and a focused info
     assert.doesNotMatch(capabilitySource, /structuredClone\(value\)/);
     assert.match(capabilitySource, /const dirty = ref\(false\)/);
     assert.match(capabilitySource, /放弃修改/);
+    assert.match(capabilitySource, /item\.detected && item\.label/);
+    assert.match(capabilitySource, /仅打开来源开关不会导入能力/);
+    assert.match(capabilitySource, /ChatGPT（Codex CLI）/);
     const appSource = readFileSync(fileURLToPath(new URL("src/ui/console/App.vue", root)), "utf8");
     assert.match(appSource, /cloudflare\/discover[^\n]*forceLogin:\s*false/);
     assert.match(appSource, /\/api\/console\/snapshot/);
@@ -237,7 +243,7 @@ test("project add changes durable project state without starting Controller or R
     const project = mkdtempSync(join(tmpdir(), "codex-mcp-project-only-root-"));
     const result = run(["project", "add", project], home, project);
     assert.equal(result.code, 0, result.output);
-    const configDir = join(home, ".codex-mcp");
+    const configDir = join(home, ".ai-mcp");
     assert.equal(existsSync(join(configDir, "controller.json")), false);
     assert.equal(existsSync(join(configDir, "daemon.json")), false);
     const projects = JSON.parse(readFileSync(join(configDir, "projects.json"), "utf8"));
@@ -249,7 +255,7 @@ test("plain start defaults to local mode, persists the actual intent, and reuses
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-start-intent-"));
     const project = mkdtempSync(join(tmpdir(), "codex-mcp-start-intent-root-"));
     writeFileSync(join(project, "package.json"), JSON.stringify({ name: "@rookiedj/aimcp", displayName: "aimcp" }));
-    const configDir = join(home, ".codex-mcp");
+    const configDir = join(home, ".ai-mcp");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(join(configDir, "config.json"), JSON.stringify({
         port: 0,
@@ -279,7 +285,7 @@ test("plain start defaults to local mode, persists the actual intent, and reuses
 test("explicit public start persists the requested mode even when prerequisites are missing", async () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-public-intent-"));
     const project = mkdtempSync(join(tmpdir(), "codex-mcp-public-intent-root-"));
-    const configDir = join(home, ".codex-mcp");
+    const configDir = join(home, ".ai-mcp");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(join(configDir, "config.json"), JSON.stringify({ port: 0 }));
     try {
@@ -300,8 +306,8 @@ test("open starts only the local control plane and exposes the Web Console", asy
     try {
         const result = run(["open"], home, home, { CODEX_MCP_NO_BROWSER: "1" });
         assert.equal(result.code, 0, result.output);
-        const controller = JSON.parse(readFileSync(join(home, ".codex-mcp", "controller.json"), "utf8"));
-        assert.equal(existsSync(join(home, ".codex-mcp", "daemon.json")), false);
+        const controller = JSON.parse(readFileSync(join(home, ".ai-mcp", "controller.json"), "utf8"));
+        assert.equal(existsSync(join(home, ".ai-mcp", "daemon.json")), false);
         const panelUrl = `http://127.0.0.1:${controller.port}/`;
         assert.ok(result.output.includes(panelUrl), result.output);
         const panel = await fetch(panelUrl);
@@ -336,10 +342,10 @@ test("open starts only the local control plane and exposes the Web Console", asy
             body: JSON.stringify({ path: webProject }),
         });
         assert.equal(webAdd.status, 200, await webAdd.clone().text());
-        assert.equal(existsSync(join(home, ".codex-mcp", "daemon.json")), false, "adding a project from Web must not start Runtime");
+        assert.equal(existsSync(join(home, ".ai-mcp", "daemon.json")), false, "adding a project from Web must not start Runtime");
         const shutdown = run(["shutdown"], home, home);
         assert.equal(shutdown.code, 0, shutdown.output);
-        assert.equal(existsSync(join(home, ".codex-mcp", "controller.json")), false);
+        assert.equal(existsSync(join(home, ".ai-mcp", "controller.json")), false);
     } finally {
         await shutdownIsolatedController(home);
     }
@@ -348,7 +354,7 @@ test("open starts only the local control plane and exposes the Web Console", asy
 test("start registers the project before Runtime validation and leaves Web recovery available", async () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-start-recovery-"));
     const project = mkdtempSync(join(tmpdir(), "codex-mcp-start-recovery-root-"));
-    const configDir = join(home, ".codex-mcp");
+    const configDir = join(home, ".ai-mcp");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(join(configDir, "config.json"), JSON.stringify({
         port: 0,
@@ -372,7 +378,7 @@ test("start registers the project before Runtime validation and leaves Web recov
 
 test("corrupt durable state fails closed", () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-state-"));
-    const dir = join(home, ".codex-mcp");
+    const dir = join(home, ".ai-mcp");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "projects.json"), JSON.stringify({ projects: [] }));
     const result = run(["project", "list"], home);
@@ -382,7 +388,7 @@ test("corrupt durable state fails closed", () => {
 
 test("invalid records are not silently discarded", () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-record-"));
-    const dir = join(home, ".codex-mcp");
+    const dir = join(home, ".ai-mcp");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "projects.json"), JSON.stringify({ schemaVersion: 1, projects: [{ id: "broken" }] }));
     const result = run(["project", "list"], home);
@@ -396,7 +402,7 @@ test("project identity is collision-resistant and durable state rejects duplicat
     assert.match(suffix, /^[0-9a-f]{16}$/);
 
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-duplicates-"));
-    const dir = join(home, ".codex-mcp");
+    const dir = join(home, ".ai-mcp");
     mkdirSync(dir, { recursive: true });
     const common = {
         name: "project",
@@ -429,15 +435,15 @@ test("project identity is collision-resistant and durable state rejects duplicat
 
 test("1.0 rejects legacy config keys instead of silently migrating them", () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-1-0-"));
-    mkdirSync(join(home, ".codex-mcp"), { recursive: true });
-    writeFileSync(join(home, ".codex-mcp", "config.json"), JSON.stringify({ domain: "legacy.example.com" }));
+    mkdirSync(join(home, ".ai-mcp"), { recursive: true });
+    writeFileSync(join(home, ".ai-mcp", "config.json"), JSON.stringify({ domain: "legacy.example.com" }));
     const script = `process.env.HOME=${JSON.stringify(home)}; process.env.USERPROFILE=${JSON.stringify(home)}; const { loadUserConfig } = await import(${JSON.stringify(new URL("dist/config/user-config.js", root).href)}); try { loadUserConfig(); process.exit(2); } catch (error) { if (!String(error?.message).includes("不支持的字段")) process.exit(3); }`;
     execFileSync(process.execPath, ["--input-type=module", "-e", script], { stdio: "pipe" });
 });
 
 test("1.0 rejects incomplete Cloudflare config and old OAuth state", async () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-schema-"));
-    const dir = join(home, ".codex-mcp");
+    const dir = join(home, ".ai-mcp");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "config.json"), JSON.stringify({
         publicAccess: {
@@ -478,7 +484,7 @@ test("persistent local Controller exposes writable Web Console and survives Runt
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-controller-"));
     const project = mkdtempSync(join(tmpdir(), "codex-mcp-project-a-"));
     const secondProject = mkdtempSync(join(tmpdir(), "codex-mcp-project-b-"));
-    const configDir = join(home, ".codex-mcp");
+    const configDir = join(home, ".ai-mcp");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(join(configDir, "config.json"), JSON.stringify({
         port: 0,
@@ -764,7 +770,7 @@ test("binding touch persists at most once per coarse activity interval", async (
 test("offline project removal clears durable conversation bindings", () => {
     const home = mkdtempSync(join(tmpdir(), "codex-mcp-offline-remove-"));
     const projectRoot = mkdtempSync(join(tmpdir(), "codex-mcp-offline-project-"));
-    const dir = join(home, ".codex-mcp");
+    const dir = join(home, ".ai-mcp");
     mkdirSync(dir, { recursive: true });
     const project = {
         id: "offline-project",
@@ -822,7 +828,7 @@ test("interactive commands fail clearly without a terminal; internal daemon entr
 
 test("update uses the published global npm package and preserves existing configuration", () => {
     const home = mkdtempSync(join(tmpdir(), "aimcp-update-"));
-    mkdirSync(join(home, ".codex-mcp"), { recursive: true });
+    mkdirSync(join(home, ".ai-mcp"), { recursive: true });
     const fakeBin = join(home, "fake-bin");
     mkdirSync(fakeBin, { recursive: true });
     const fakeNpm = join(fakeBin, process.platform === "win32" ? "npm.cmd" : "npm");
@@ -833,7 +839,7 @@ test("update uses the published global npm package and preserves existing config
             : "#!/bin/sh\nprintf '%s\\n' \"$*\"\nexit 23\n",
         { mode: 0o755 },
     );
-    const config = join(home, ".codex-mcp", "config.json");
+    const config = join(home, ".ai-mcp", "config.json");
     const original = JSON.stringify({ port: 4321 });
     writeFileSync(config, original);
     const result = run(["update"], home, home, {

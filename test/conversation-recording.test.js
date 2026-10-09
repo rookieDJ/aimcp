@@ -30,7 +30,7 @@ test("recording switch persists, protects its API and stops Runtime archive writ
     await bindings.bind(owner, project.id);
     await saveConversationUse(owner, project, { boundAt: bindings.resolve(owner).boundAt, messages: [{ id: "old", role: "user", content: "existing chat" }] });
     const id = conversationId(owner);
-    const archivePath = join(home, ".codex-mcp", "conversations", id + ".json");
+    const archivePath = join(home, ".ai-mcp", "conversations", id + ".json");
     const original = readFileSync(archivePath, "utf8");
     const controller = createControllerHttpServer({ state: { schemaVersion: 1, apiVersion: 1, pid: process.pid, host: "127.0.0.1", controlToken: randomBytes(32).toString("hex"), startedAt: new Date().toISOString(), version: "1.2.2" }, onShutdown: async () => {}, onReplaced: async () => {} });
     const runtime = createHttpServer(loadConfig({ projectRoot: home, local: true, userConfig: { port: 0 } }), { daemon: { registry, bindings, runtimes: new ProjectRuntimeManager(), controlToken: "fixture-control", runtimeIntent: { local: true, noTunnel: true, tunnelLogs: false }, tunnelStatus: () => ({ running: false, state: "off" }), onShutdown: async () => {} } });
@@ -57,7 +57,7 @@ test("recording switch persists, protects its API and stops Runtime archive writ
     assert.equal(select.structuredContent.recording_enabled, false);
     const handle = select.structuredContent.project_session;
     const binding = bindings.resolveProjectSession("local:noauth", handle);
-    assert.equal(existsSync(join(home, ".codex-mcp/conversations", conversationId(binding.ownerKey) + ".json")), false);
+    assert.equal(existsSync(join(home, ".ai-mcp/conversations", conversationId(binding.ownerKey) + ".json")), false);
     assert.equal(presentBindings(loadBindingsFile()).find(item => item.id === conversationId(binding.ownerKey)).label, "Gemini 会话");
     const paused = await call({ action: "record", project_session: handle, messages: [{ id: "paused", role: "user", content: "DO NOT STORE" }] });
     assert.equal(paused.isError === true, false);

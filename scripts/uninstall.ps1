@@ -20,8 +20,8 @@ function Success([string]$Message) {
     Write-Status "✓" Green $Message
 }
 
-$installRoot = Join-Path $env:USERPROFILE ".codex-mcp\npm"
-$managedBin = Join-Path $env:USERPROFILE ".codex-mcp\bin"
+$installRoot = Join-Path $env:USERPROFILE ".ai-mcp\npm"
+$managedBin = Join-Path $env:USERPROFILE ".ai-mcp\bin"
 
 if (Test-Path -LiteralPath $installRoot) {
     Remove-Item -LiteralPath $installRoot -Recurse -Force
@@ -47,5 +47,5 @@ if ($userPath) {
 
 Success "aimcp 程序已删除。"
 Write-Host ""
-Info "你的配置、连接密码和 Tunnel 信息仍保留在：$env:USERPROFILE\.codex-mcp"
+Info "你的配置、连接密码和 Tunnel 信息仍保留在：$env:USERPROFILE\.ai-mcp"
 Info "以后重新安装 aimcp 时可以继续使用这些配置。"

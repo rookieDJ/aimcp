@@ -20,10 +20,11 @@ export interface ResolvedCapabilitiesConfig {
 
 const DEFAULT_CAPABILITIES: ResolvedCapabilitiesConfig = {
     sync: "watch",
-    priority: ["agents", "codex", "claude"],
+    priority: ["agents", "codex", "gemini", "claude"],
     sources: {
         agents: { enabled: true, mcp: false, skills: true },
         codex: { enabled: true, mcp: true, skills: true },
+        gemini: { enabled: false, mcp: true, skills: true },
         claude: { enabled: false, mcp: true, skills: true },
     },
 };
@@ -38,6 +39,7 @@ export function resolveCapabilitiesConfig(
         sources: {
             agents: resolveSource("agents", config?.sources?.agents),
             codex: resolveSource("codex", config?.sources?.codex),
+            gemini: resolveSource("gemini", config?.sources?.gemini),
             claude: resolveSource("claude", config?.sources?.claude),
         },
     };
@@ -48,8 +50,9 @@ export function describeEnabledCapabilitySources(config: ResolvedCapabilitiesCon
         .filter((source) => config.sources[source].enabled)
         .map((source) => {
             if (source === "agents") return "Agent Skills";
+            if (source === "gemini") return "Gemini CLI";
             if (source === "claude") return "Claude Code";
-            return "Codex";
+            return "ChatGPT（Codex CLI）";
         });
     return enabled.length > 0 ? enabled.join(" + ") : "未启用";
 }

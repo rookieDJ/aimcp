@@ -19,7 +19,7 @@ import {
     type RuntimeIntent,
     type SessionBinding,
 } from "../daemon/state.js";
-import { runDoctorChecks, type DoctorReport } from "../doctor/index.js";
+import { runDoctorChecks, type DoctorReport, type DoctorOptions } from "../doctor/index.js";
 import { runSelfUpdate } from "../doctor/update.js";
 import { findRipgrep } from "../lib/search/ripgrep.js";
 import { ensureManagedTool } from "../managed-tools/install.js";
@@ -35,6 +35,7 @@ import {
     prepareExternalTunnelSetup,
 } from "../tunnel/setup.js";
 import { checkPublicAccess, configurePreparedPublicAccess } from "../tunnel/public-access-manager.js";
+import { suggestCloudflaredBin } from "../tunnel/bin.js";
 
 export interface RuntimeStartInput extends RuntimeIntent {
     /** When false, an existing daemon keeps its current intent. Mirrors CLI start without explicit mode flags. */
@@ -247,16 +248,20 @@ export async function cleanupProjectConversations(
     });
 }
 
-export async function runDoctorService(fix = false): Promise<DoctorServiceResult> {
+export async function runDoctorService(fix = false, options: DoctorOptions = {}): Promise<DoctorServiceResult> {
     const fixes: string[] = [];
     const warnings: string[] = [];
+    options.signal?.throwIfAborted();
     if (fix) {
-        const state = (await import("../daemon/state.js")).loadDaemonState();
-        const stale = Boolean(state && !isPidAlive(state.pid));
+        options.onPhase?.("恢复本机目录与依赖");
         ensureUserConfigDirs();
-        cleanStaleDaemonState();
-        fixes.push("已确保 ~/.codex-mcp 配置目录和日志目录存在");
-        if (stale) fixes.push("已清理失效的 daemon 状态文件");
+        fixes.push("已确保 ~/.ai-mcp 配置目录和日志目录存在");
+        try {
+            const state = (await import("../daemon/state.js")).loadDaemonState();
+            const stale = Boolean(state && !isPidAlive(state.pid));
+            cleanStaleDaemonState();
+            if (stale) fixes.push("已清理失效的 daemon 状态文件");
+        } catch { warnings.push("daemon 状态损坏，已保留原文件；请根据诊断结果修复。"); }
         if (!(await findRipgrep())) {
             try {
                 const installed = await ensureManagedTool("ripgrep");
@@ -267,8 +272,36 @@ export async function runDoctorService(fix = false): Promise<DoctorServiceResult
                 );
             }
         }
+        options.signal?.throwIfAborted();
+        try {
+            const config = loadUserConfig();
+            if (config.publicAccess?.kind === "cloudflare") {
+                if (!(await suggestCloudflaredBin(config.publicAccess.cloudflaredBin))) {
+                    await ensureManagedTool("cloudflared");
+                    fixes.push("已恢复受管 cloudflared 组件");
+                }
+                options.signal?.throwIfAborted();
+                options.onPhase?.("检查并恢复本机托管隧道");
+                await withDaemonLifecycleLock(async () => {
+                    options.signal?.throwIfAborted();
+                    const daemon = await contactRunningDaemon();
+                    if (!daemon || daemon.state.runtimeIntent.local || daemon.state.runtimeIntent.noTunnel) return;
+                    const status = await daemon.client.status();
+                    if (status.tunnel.state === "connected") return;
+                    // Validate the committed local identity; never guess resources or rewrite DNS.
+                    await loadCommittedTunnelSetup(config, daemon.state.host, daemon.state.port);
+                    if (status.publicMcpUrl !== `https://${config.publicAccess!.domain}/mcp`) throw new Error("运行地址与已保存配置不一致，请先重启服务");
+                    options.signal?.throwIfAborted();
+                    await daemon.client.recoverTunnel(options.signal);
+                    fixes.push("已重连本机 Cloudflare 隧道，MCP 服务与项目会话保持在线");
+                });
+            }
+        } catch (error) {
+            options.signal?.throwIfAborted();
+            warnings.push(`本机隧道恢复未完成：${error instanceof Error ? error.message : "请查看诊断结果"}`);
+        }
     }
-    return { fixes, warnings, report: await runDoctorChecks() };
+    return { fixes, warnings, report: await runDoctorChecks(options) };
 }
 
 export async function setConnectionPassword(password: string): Promise<void> {

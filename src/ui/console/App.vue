@@ -359,14 +359,14 @@ async function setConversationRecording(enabled: boolean): Promise<void> {
 async function saveCapabilities(config: CapabilityConfig): Promise<void> {
     await runAction(async () => {
         const sources = { ...config.sources, agents: { ...config.sources.agents, mcp: false } };
-        await api("/api/setup/capabilities", { method: "POST", body: { config: { ...config, priority: ["agents", "codex", "claude"], sources } } });
+        await api("/api/setup/capabilities", { method: "POST", body: { config: { ...config, priority: ["agents", "codex", "gemini", "claude"], sources } } });
         await refreshAll(false);
     }, "工具设置已保存");
 }
 function runDoctor(fix: boolean): void {
     const action = () => startOperation("maintenance", "/api/doctor", { fix }, fix ? "检查和修复已完成" : "服务检查已完成");
     if (!fix) { void action(); return; }
-    void confirmAction("检查并修复常见问题？", "只会恢复缺失的文件搜索组件、创建缺失目录和清理失效状态，不会删除项目或配置。", "开始修复", action);
+    void confirmAction("检查并修复常见问题？", "恢复缺失组件、创建缺失目录、清理失效状态，并重连中断的本机托管隧道。MCP 服务与项目会话保留，Cloudflare DNS 和连接配置保持不变。", "开始修复", action);
 }
 function selfUpdate(): void {
     void confirmAction("检查并安装最新版本？", "更新期间 MCP 服务和控制面板会短暂重启，项目与连接设置会保留。", "检查并更新", () => startOperation("maintenance", "/api/update", {}, "新版本已安装", (result) => {

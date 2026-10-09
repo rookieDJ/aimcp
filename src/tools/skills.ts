@@ -8,7 +8,7 @@ import { errorResult, okResult } from "../lib/tool/result.js";
 const skillInfoSchema = z.object({
     name: z.string(),
     description: z.string(),
-    source: z.enum(["agents", "codex", "claude"]),
+    source: z.enum(["agents", "codex", "gemini", "claude"]),
     scope: z.enum(["user", "project"]).optional(),
     workspaceRoot: z.string().optional(),
 });

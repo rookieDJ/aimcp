@@ -9,7 +9,7 @@ import SpotlightCard from "../components/SpotlightCard.vue";
 interface DoctorResult {
     fixes?: string[];
     warnings?: string[];
-    report?: { checks?: Array<{ level: "ok" | "warn" | "error"; label: string; detail: string }> };
+    report?: { checkedAt?: string; errors?: number; warnings?: number; checks?: Array<{ level: "ok" | "warn" | "error"; label: string; detail: string; hint?: string }> };
 }
 
 const props = defineProps<{
@@ -26,6 +26,12 @@ const logError = ref("");
 let logSource: EventSource | undefined;
 
 const doctor = computed(() => props.operation?.kind.startsWith("doctor") && props.operation.result ? props.operation.result as DoctorResult : undefined);
+const checkFilter = ref("all");
+const orderedChecks = computed(() => {
+    const priority = { error: 0, warn: 1, ok: 2 };
+    return [...(doctor.value?.report?.checks ?? [])].filter(check => checkFilter.value !== "issues" || check.level !== "ok").sort((a, b) => priority[a.level] - priority[b.level]);
+});
+const checkedAt = computed(() => doctor.value?.report?.checkedAt ? new Date(doctor.value.report.checkedAt).toLocaleTimeString("zh-CN") : "");
 
 async function readLogs(): Promise<void> {
     try {
@@ -52,15 +58,13 @@ function startLogStream(): void {
 watch(tab, (value) => value === "logs" ? startLogStream() : stopLogStream());
 onBeforeUnmount(stopLogStream);
 
-function friendlyCheck(label: string, detail: string): { title: string; detail: string } {
+function friendlyCheck(label: string, detail: string, level: "ok" | "warn" | "error"): { title: string; detail: string } {
     const titles: Record<string, string> = {
         "Node.js": "运行环境", "Git": "Git 工具", "文件搜索": "文件搜索 (ripgrep)", "配置文件": "本机设置",
         "外部能力": "可用工具与技能", "连接密码": "连接密码", "公网地址": "公网 MCP 地址", "守护进程": "MCP 服务",
     };
-    if (label === "连接密码" && /未设置/.test(detail)) return { title: titles[label]!, detail: "尚未设置，请前往“连接”页面完成。" };
-    if (label === "公网地址" && /未设置/.test(detail)) return { title: titles[label]!, detail: "尚未配置，配置后才能接受远程 MCP 连接。" };
     if (label === "守护进程" && /^pid\s/i.test(detail)) return { title: titles[label]!, detail: "服务正在本机运行。" };
-    if (label === "配置文件") return { title: titles[label]!, detail: "设置文件可以正常读取。" };
+    if (label === "配置文件" && level === "ok") return { title: titles[label]!, detail: "设置文件可以正常读取。" };
     return { title: titles[label] ?? label, detail };
 }
 function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "danger" {
@@ -90,7 +94,7 @@ function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "dange
                             <div class="section-heading">
                                 <div>
                                     <h2>环境与依赖深度诊断 (Doctor)</h2>
-                                    <p>普通检查只读扫描依赖与配置；“检查并修复”只执行非破坏性的本机恢复。</p>
+                                    <p>检查依赖、项目、会话、MCP 与公网入口；自动修复可恢复组件和重连本机隧道，保留连接配置。</p>
                                 </div>
                                 <div class="inline-actions">
                                     <el-button :disabled="busy" @click="emit('doctor', false)">
@@ -103,6 +107,16 @@ function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "dange
                             </div>
 
                             <OperationPanel v-if="operation?.kind.startsWith('doctor')" :operation="operation" @cancel="emit('cancelOperation', $event)" />
+
+                            <div v-if="doctor?.report" class="inline-actions doctor-summary">
+                                <el-tag :type="doctor.report.errors ? 'danger' : 'success'">{{ doctor.report.errors ?? 0 }} 个错误</el-tag>
+                                <el-tag type="warning">{{ doctor.report.warnings ?? 0 }} 个提示</el-tag>
+                                <span class="muted small">{{ checkedAt ? `检查于 ${checkedAt}` : '' }}</span>
+                                <el-radio-group v-model="checkFilter" size="small" aria-label="诊断结果筛选">
+                                    <el-radio-button value="all">全部检查</el-radio-button>
+                                    <el-radio-button value="issues">只看问题</el-radio-button>
+                                </el-radio-group>
+                            </div>
 
                             <div v-if="doctor?.fixes?.length || doctor?.warnings?.length || doctor?.report?.checks?.length" class="doctor-results-grid">
                                 <div v-for="fix in doctor?.fixes" :key="fix" class="doctor-result-row is-fix">
@@ -121,15 +135,17 @@ function tagType(level: "ok" | "warn" | "error"): "success" | "warning" | "dange
                                     <el-tag type="warning" effect="light" class="result-tag">需注意</el-tag>
                                 </div>
 
-                                <div v-for="check in doctor?.report?.checks" :key="`${check.label}-${check.detail}`" class="doctor-result-row">
+                                <div v-for="check in orderedChecks" :key="`${check.label}-${check.detail}`" class="doctor-result-row">
                                     <div class="result-text-area">
-                                        <div class="result-title">{{ friendlyCheck(check.label, check.detail).title }}</div>
-                                        <div class="result-detail muted small">{{ friendlyCheck(check.label, check.detail).detail }}</div>
+                                        <div class="result-title">{{ friendlyCheck(check.label, check.detail, check.level).title }}</div>
+                                        <div class="result-detail muted small">{{ friendlyCheck(check.label, check.detail, check.level).detail }}</div>
+                                        <div v-if="check.hint" class="result-detail small">建议：{{ check.hint }}</div>
                                     </div>
                                     <el-tag :type="tagType(check.level)" effect="light" class="result-tag">
                                         {{ check.level === 'ok' ? '正常通过' : check.level === 'warn' ? '需要关注' : '亟待处理' }}
                                     </el-tag>
                                 </div>
+                                <el-empty v-if="checkFilter === 'issues' && !orderedChecks.length" description="没有需要处理的检查结果" :image-size="64" />
                             </div>
                             <div v-else-if="!operation?.kind.startsWith('doctor')" class="doctor-idle-placeholder">
                                 <div class="idle-icon-wrap">✓</div>

@@ -17,6 +17,7 @@ import type {
 } from "./provider.js";
 import { agentsCapabilityProvider } from "./providers/agents.js";
 import { claudeCapabilityProvider } from "./providers/claude.js";
+import { geminiCapabilityProvider } from "./providers/gemini.js";
 import { codexCapabilityProvider } from "./providers/codex.js";
 
 export interface CapabilitySourceDiagnostic {
@@ -42,6 +43,7 @@ export interface CapabilityManagerOptions {
 const DEFAULT_PROVIDERS: CapabilityProvider[] = [
     agentsCapabilityProvider,
     codexCapabilityProvider,
+    geminiCapabilityProvider,
     claudeCapabilityProvider,
 ];
 
@@ -169,13 +171,13 @@ export class CapabilityManager {
         const targets: CapabilityWatchTarget[] = [
             {
                 key: "aimcp-user-config",
-                directory: join(this.homeDirectory, ".codex-mcp"),
+                directory: join(this.homeDirectory, ".ai-mcp"),
                 fileName: "config.json",
                 recursiveWhenExact: false,
             },
             {
                 key: "aimcp-mcp-overrides",
-                directory: join(this.homeDirectory, ".codex-mcp"),
+                directory: join(this.homeDirectory, ".ai-mcp"),
                 fileName: "mcp.json",
                 recursiveWhenExact: false,
             },

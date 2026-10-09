@@ -4,6 +4,7 @@ import { normalizeTunnelId } from "./id.js";
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 const API_TIMEOUT_MS = 30_000;
+interface ReadOnlyApiOptions { signal?: AbortSignal; timeoutMs?: number }
 const MAX_API_BODY_CHARS = 2 * 1024 * 1024;
 const DNS_TYPES_WITH_DATA = new Set([
     "CAA", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR",
@@ -54,11 +55,14 @@ export interface CloudflareTunnelObserved {
 export async function snapshotCloudflareDns(
     zoneId: string,
     hostname: string,
+    options: ReadOnlyApiOptions = {},
 ): Promise<CloudflareDnsSnapshot> {
     const query = new URLSearchParams({ "name.exact": hostname, per_page: "5000000" });
     const records = await cloudflareApiRequest<CloudflareDnsRecordSnapshot[]>(
         "GET",
         `/zones/${encodeURIComponent(zoneId)}/dns_records?${query.toString()}`,
+        undefined,
+        options,
     );
     return {
         zoneId,
@@ -201,12 +205,14 @@ async function replaceDnsRecords(
 export async function inspectCloudflareTunnel(
     accountId: string,
     tunnelId: string,
+    options: ReadOnlyApiOptions = {},
 ): Promise<CloudflareTunnelObserved> {
     const normalizedTunnelId = normalizeTunnelId(tunnelId);
     try {
         const tunnel = await cloudflareApiRequest<{ status?: unknown; deleted_at?: unknown }>(
             "GET",
             `/accounts/${encodeURIComponent(accountId)}/cfd_tunnel/${encodeURIComponent(normalizedTunnelId)}`,
+            undefined, options,
         );
         // Cloudflare soft-deletes tunnels: the detail endpoint can keep returning
         // HTTP 200 with deleted_at populated even though the tunnel disappeared
@@ -216,6 +222,7 @@ export async function inspectCloudflareTunnel(
         const connections = await cloudflareApiRequest<unknown[]>(
             "GET",
             `/accounts/${encodeURIComponent(accountId)}/cfd_tunnel/${encodeURIComponent(normalizedTunnelId)}/connections`,
+            undefined, options,
         );
         const status = isTunnelStatus(tunnel.status) ? tunnel.status : undefined;
         return { exists: true, ...(status ? { status } : {}), connectorCount: connections.length };
@@ -310,6 +317,7 @@ async function cloudflareApiRequest<T>(
     method: "GET" | "POST" | "DELETE",
     path: string,
     body?: Record<string, unknown>,
+    options: ReadOnlyApiOptions = {},
 ): Promise<T> {
     const token = readManagedCloudflareOriginToken();
     try {
@@ -319,7 +327,8 @@ async function cloudflareApiRequest<T>(
             httpsOnly: true,
             maxRedirects: 0,
             maxBytes: MAX_API_BODY_CHARS,
-            timeoutMs: API_TIMEOUT_MS,
+            timeoutMs: options.timeoutMs ?? API_TIMEOUT_MS,
+            signal: options.signal,
             headers: {
                 Accept: "application/json",
                 Authorization: `Bearer ${token.apiToken}`,
@@ -344,7 +353,7 @@ async function cloudflareApiRequest<T>(
         return payload.result;
     } catch (error) {
         if (/timed out|timeout/i.test(readableError(error))) {
-            throw new Error("Cloudflare API 请求在 30 秒内没有完成");
+            throw new Error(`Cloudflare API 请求在 ${Math.round((options.timeoutMs ?? API_TIMEOUT_MS) / 1000)} 秒内没有完成`);
         }
         throw error;
     }

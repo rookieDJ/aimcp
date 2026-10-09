@@ -7,7 +7,7 @@ import { list } from "tar";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const allowedPath = /^(?:dist\/(?:[\w-]+\/)*[\w-]+\.(?:js|css)|scripts\/install\.(?:sh|ps1)|package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md)$/;
-const privateArtifacts = /(?:^|\/)(?:\.env(?:\..*)?|\.npmrc|\.git|\.codex|\.codex-mcp|conversations?|logs?|credentials?|secrets?)(?:\/|$)/i;
+const privateArtifacts = /(?:^|\/)(?:\.env(?:\..*)?|\.npmrc|\.git|\.codex|\.codex-mcp|\.ai-mcp|conversations?|logs?|credentials?|secrets?)(?:\/|$)/i;
 const secretPatterns = [
     /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
     /\b(?:npm_[A-Za-z0-9]{30,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AIza[A-Za-z0-9_-]{35}|sk-(?:proj-)?[A-Za-z0-9_-]{30,})\b/,
